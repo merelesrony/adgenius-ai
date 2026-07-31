@@ -47,7 +47,7 @@ export default async function ProductsPage() {
       <div className="rounded-lg border border-border bg-card">
         {!products || products.length === 0 ? (
           <EmptyState
-            icon={Box}
+            icon={<Box className="size-7 text-muted-foreground" />}
             title="Sin productos"
             description="Agrega tus productos o servicios para usarlos en las campañas publicitarias."
             action={{ label: 'Agregar primer producto', href: '/products' }}

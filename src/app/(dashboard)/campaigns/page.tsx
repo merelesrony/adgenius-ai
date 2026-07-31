@@ -49,7 +49,7 @@ export default async function CampaignsPage() {
       <div className="rounded-lg border border-border bg-card">
         {!campaigns || campaigns.length === 0 ? (
           <EmptyState
-            icon={Megaphone}
+            icon={<Megaphone className="size-7 text-muted-foreground" />}
             title="Sin campañas"
             description="Crea tu primera campaña y usa IA para generar el copy y la audiencia ideal para tu negocio."
             action={{ label: 'Crear primera campaña', href: '/campaigns/new' }}

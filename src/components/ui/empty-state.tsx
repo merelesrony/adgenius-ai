@@ -1,6 +1,6 @@
 'use client'
 
-import type { LucideIcon } from 'lucide-react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { Button, buttonVariants } from './button'
 import { cn } from '@/lib/utils'
@@ -12,7 +12,7 @@ interface ActionConfig {
 }
 
 interface EmptyStateProps {
-  icon?: LucideIcon
+  icon?: ReactNode
   title: string
   description?: string
   action?: ActionConfig
@@ -51,7 +51,7 @@ function SecondaryActionButton({ label, href, onClick }: ActionConfig) {
 }
 
 export function EmptyState({
-  icon: Icon,
+  icon,
   title,
   description,
   action,
@@ -65,9 +65,9 @@ export function EmptyState({
         className
       )}
     >
-      {Icon && (
+      {icon && (
         <div className="flex items-center justify-center w-14 h-14 rounded-full bg-muted mb-4">
-          <Icon className="size-7 text-muted-foreground" />
+          {icon}
         </div>
       )}
       <h3 className="text-base font-semibold text-foreground mb-1">{title}</h3>

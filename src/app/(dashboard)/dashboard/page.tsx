@@ -152,7 +152,7 @@ export default async function DashboardPage() {
 
         {!recentCampaigns || recentCampaigns.length === 0 ? (
           <EmptyState
-            icon={Megaphone}
+            icon={<Megaphone className="size-7 text-muted-foreground" />}
             title="Sin campañas todavía"
             description="Crea tu primera campaña publicitaria con ayuda de IA."
             action={{ label: 'Crear campaña', href: '/campaigns/new' }}
