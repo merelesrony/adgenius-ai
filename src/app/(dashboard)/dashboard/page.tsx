@@ -3,7 +3,8 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
   Megaphone, Box, Sparkles, TrendingUp, PlusCircle,
-  ArrowRight, Star, CheckCircle2, FileEdit,
+  ArrowRight, Star, CheckCircle2, FileEdit, Activity,
+  ChevronRight,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
@@ -15,7 +16,9 @@ import { StatusBadge } from '@/components/ui/badge'
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@/components/ui/table'
-import { formatRelativeDate } from '@/lib/utils'
+import { formatRelativeDate, cn } from '@/lib/utils'
+import { AnalyticsChart } from '@/components/dashboard/analytics-chart'
+import { AnimatedSection } from '@/components/dashboard/animated-section'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 
@@ -26,10 +29,17 @@ export default async function DashboardPage() {
 
   type PlanRow = { display_name: string; ai_generations_limit: number; campaign_limit: number }
   type SubRow = { status: string; plan: PlanRow | null }
-  type CampaignRow = { id: string; name: string; status: string; ai_generated: boolean; campaign_score: number | null; created_at: string }
+  type CampaignRow = {
+    id: string
+    name: string
+    status: string
+    ai_generated: boolean
+    campaign_score: number | null
+    created_at: string
+  }
 
   const statsArgs: Database['public']['Functions']['get_campaign_stats']['Args'] = {
-    p_user_id: user.id
+    p_user_id: user.id,
   }
 
   const [
@@ -40,10 +50,32 @@ export default async function DashboardPage() {
     { count: aiUsedCount },
   ] = await Promise.all([
     supabase.from('campaigns').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
-    supabase.from('products').select('*', { count: 'exact', head: true }).eq('user_id', user.id).eq('is_active', true),
-    supabase.from('subscriptions').select('*, plan:plans(*)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabase.from('campaigns').select('id, name, status, ai_generated, campaign_score, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-    supabase.from('ai_usage').select('*', { count: 'exact', head: true }).eq('user_id', user.id).gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+    supabase
+      .from('products')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('is_active', true),
+    supabase
+      .from('subscriptions')
+      .select('*, plan:plans(*)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from('campaigns')
+      .select('id, name, status, ai_generated, campaign_score, created_at')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5),
+    supabase
+      .from('ai_usage')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .gte(
+        'created_at',
+        new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
+      ),
   ])
 
   const { data: campaignStats } = await callRpc(supabase, 'get_campaign_stats', statsArgs)
@@ -54,161 +86,283 @@ export default async function DashboardPage() {
   const aiLimit = plan?.ai_generations_limit ?? 20
   const aiUsed = aiUsedCount ?? 0
   const aiRemaining = aiLimit === -1 ? '∞' : String(Math.max(0, aiLimit - aiUsed))
+  const aiLimitDisplay = aiLimit === -1 ? '∞' : aiLimit
+  const aiProgressPct =
+    aiLimit === -1 ? 10 : Math.min(100, Math.round((aiUsed / (aiLimit || 1)) * 100))
 
   const stats = Array.isArray(campaignStats) ? campaignStats[0] : null
 
-  const { data: canCreate } = await callRpc(supabase, 'check_campaign_limit', { p_user_id: user.id })
+  const { data: canCreate } = await callRpc(supabase, 'check_campaign_limit', {
+    p_user_id: user.id,
+  })
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <h1 className="text-xl font-semibold text-foreground">Dashboard</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Resumen de tu actividad en AdGenius AI
-          </p>
-        </div>
-        <Link href="/campaigns/new">
-          <Button size="sm" disabled={canCreate === false}>
-            <PlusCircle className="size-4" />
-            Nueva campaña
-          </Button>
-        </Link>
-      </div>
-
-      {/* Main stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Campañas"
-          value={totalCampaigns ?? 0}
-          description="Total creadas"
-          icon={<Megaphone />}
-        />
-        <StatCard
-          title="Productos"
-          value={productCount ?? 0}
-          description="Activos"
-          icon={<Box />}
-        />
-        <StatCard
-          title="Plan actual"
-          value={plan?.display_name ?? 'Starter'}
-          description={subscription ? `Estado: ${subscription.status}` : 'Sin suscripción'}
-          icon={<TrendingUp />}
-        />
-        <StatCard
-          title="Generaciones IA"
-          value={`${aiUsed} / ${aiLimit === -1 ? '∞' : aiLimit}`}
-          description={`${aiRemaining} restantes este mes`}
-          icon={<Sparkles />}
-        />
-      </div>
-
-      {/* Campaign status breakdown */}
-      {stats && (
-        <div className="grid grid-cols-3 gap-4">
-          <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-muted">
-              <FileEdit className="size-5 text-muted-foreground" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">{stats.draft_count ?? 0}</p>
-              <p className="text-xs text-muted-foreground">Borradores</p>
-            </div>
+      <AnimatedSection>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Bienvenido a AdGenius AI
+            </p>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-brand/10">
-              <CheckCircle2 className="size-5 text-brand" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-brand">{stats.ready_count ?? 0}</p>
-              <p className="text-xs text-muted-foreground">Listas con IA</p>
-            </div>
-          </div>
-          <div className="rounded-xl border border-border bg-card p-4 flex items-center gap-3">
-            <div className="flex size-10 items-center justify-center rounded-lg bg-amber-50 dark:bg-amber-500/10">
-              <Star className="size-5 text-amber-500" />
-            </div>
-            <div>
-              <p className="text-2xl font-bold text-foreground">
-                {stats.avg_score != null ? `${stats.avg_score}` : '—'}
-              </p>
-              <p className="text-xs text-muted-foreground">Score promedio</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Recent campaigns */}
-      <div className="rounded-lg border border-border bg-card">
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h2 className="text-sm font-semibold text-card-foreground">Campañas recientes</h2>
-          <Link href="/campaigns" className="flex items-center gap-1 text-xs text-brand hover:underline">
-            Ver todas
-            <ArrowRight className="size-3" />
+          <Link href="/campaigns/new">
+            <Button disabled={canCreate === false} className="gap-2">
+              <PlusCircle className="size-4" />
+              Nueva campaña
+            </Button>
           </Link>
         </div>
+      </AnimatedSection>
 
-        {!recentCampaigns || recentCampaigns.length === 0 ? (
-          <EmptyState
-            icon={<Megaphone className="size-7 text-muted-foreground" />}
-            title="Sin campañas todavía"
-            description="Crea tu primera campaña publicitaria con ayuda de IA."
-            action={{ label: 'Crear campaña', href: '/campaigns/new' }}
-            className="py-10"
+      {/* Stat cards */}
+      <AnimatedSection delay={0.05}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            title="Campañas"
+            value={totalCampaigns ?? 0}
+            description="Total creadas"
+            icon={<Megaphone />}
+            iconColor="blue"
           />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="hidden sm:table-cell">Score</TableHead>
-                <TableHead className="hidden sm:table-cell">Creada</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentCampaigns.map((row) => {
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Link
-                          href={`/campaigns/${row.id}`}
-                          className="font-medium text-foreground hover:text-brand transition-colors"
-                        >
-                          {row.name}
-                        </Link>
-                        {row.ai_generated && (
-                          <Sparkles className="size-3 text-brand shrink-0" aria-label="IA" />
-                        )}
+          <StatCard
+            title="Productos"
+            value={productCount ?? 0}
+            description="Activos"
+            icon={<Box />}
+            iconColor="purple"
+          />
+          <StatCard
+            title="IA este mes"
+            value={`${aiUsed} / ${aiLimitDisplay}`}
+            description={`${aiRemaining} generaciones restantes`}
+            icon={<Sparkles />}
+            iconColor="indigo"
+          />
+          <StatCard
+            title="Plan actual"
+            value={plan?.display_name ?? 'Starter'}
+            description={subscription ? subscription.status : 'Sin suscripción'}
+            icon={<TrendingUp />}
+            iconColor="green"
+          />
+        </div>
+      </AnimatedSection>
+
+      {/* Main content grid */}
+      <AnimatedSection delay={0.1}>
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+          {/* Left column: chart + recent campaigns */}
+          <div className="xl:col-span-2 space-y-6">
+            <AnalyticsChart />
+
+            {/* Recent campaigns */}
+            <div className="rounded-2xl border border-border bg-card overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+                <div>
+                  <h2 className="text-sm font-semibold text-foreground">Campañas recientes</h2>
+                  <p className="text-xs text-muted-foreground mt-0.5">Últimas 5 actualizadas</p>
+                </div>
+                <Link
+                  href="/campaigns"
+                  className="flex items-center gap-1 text-xs font-medium text-brand hover:text-brand/80 transition-colors"
+                >
+                  Ver todas
+                  <ArrowRight className="size-3" />
+                </Link>
+              </div>
+
+              {!recentCampaigns || recentCampaigns.length === 0 ? (
+                <EmptyState
+                  icon={<Megaphone className="size-7 text-muted-foreground" />}
+                  title="Sin campañas todavía"
+                  description="Crea tu primera campaña publicitaria con ayuda de IA."
+                  action={{ label: 'Crear campaña', href: '/campaigns/new' }}
+                  className="py-10"
+                />
+              ) : (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Nombre</TableHead>
+                      <TableHead>Estado</TableHead>
+                      <TableHead className="hidden sm:table-cell">Score</TableHead>
+                      <TableHead className="hidden sm:table-cell">Creada</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentCampaigns.map((row) => (
+                      <TableRow key={row.id}>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              href={`/campaigns/${row.id}`}
+                              className="font-medium text-foreground hover:text-brand transition-colors"
+                            >
+                              {row.name}
+                            </Link>
+                            {row.ai_generated && (
+                              <Sparkles
+                                className="size-3 text-brand shrink-0"
+                                aria-label="IA"
+                              />
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge
+                            status={
+                              row.status as
+                                | 'draft'
+                                | 'active'
+                                | 'paused'
+                                | 'pending'
+                                | 'completed'
+                                | 'failed'
+                            }
+                          />
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
+                          {row.campaign_score != null ? (
+                            <span
+                              className={cn(
+                                'font-medium',
+                                row.campaign_score >= 70
+                                  ? 'text-success'
+                                  : row.campaign_score >= 40
+                                    ? 'text-amber-500'
+                                    : 'text-muted-foreground'
+                              )}
+                            >
+                              {row.campaign_score}/100
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </TableCell>
+                        <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                          {formatRelativeDate(row.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </div>
+          </div>
+
+          {/* Right column: status + plan + quick actions */}
+          <div className="space-y-4">
+            {/* Campaign status breakdown */}
+            {stats && (
+              <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Estado de campañas</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Distribución actual</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-muted">
+                        <FileEdit className="size-4 text-muted-foreground" />
                       </div>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge status={row.status as 'draft' | 'active' | 'paused' | 'pending' | 'completed' | 'failed'} />
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                      {row.campaign_score != null ? (
-                        <span className={
-                          row.campaign_score >= 70 ? 'text-brand font-medium' :
-                          row.campaign_score >= 40 ? 'text-amber-500 font-medium' :
-                          'text-muted-foreground'
-                        }>
-                          {row.campaign_score}/100
-                        </span>
-                      ) : '—'}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
-                      {formatRelativeDate(row.created_at)}
-                    </TableCell>
-                  </TableRow>
-                )
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+                      <span className="text-sm text-foreground">Borradores</span>
+                    </div>
+                    <span className="text-sm font-bold text-foreground">
+                      {stats.draft_count ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-brand/10">
+                        <CheckCircle2 className="size-4 text-brand" />
+                      </div>
+                      <span className="text-sm text-foreground">Listas con IA</span>
+                    </div>
+                    <span className="text-sm font-bold text-brand">
+                      {stats.ready_count ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-amber-50 dark:bg-amber-900/20">
+                        <Star className="size-4 text-amber-500" />
+                      </div>
+                      <span className="text-sm text-foreground">Score promedio</span>
+                    </div>
+                    <span className="text-sm font-bold text-foreground">
+                      {stats.avg_score != null ? stats.avg_score : '—'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Plan card with gradient */}
+            <div className="rounded-2xl bg-gradient-to-br from-brand to-purple-600 p-5 text-white">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <TrendingUp className="size-4" />
+                  <span className="text-sm font-bold">{plan?.display_name ?? 'Starter'}</span>
+                </div>
+                <span className="text-xs font-semibold bg-white/20 px-2 py-0.5 rounded-full capitalize">
+                  {subscription?.status ?? 'trial'}
+                </span>
+              </div>
+
+              <div className="mb-3">
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="text-white/80">Generaciones IA</span>
+                  <span className="font-semibold">
+                    {aiUsed} / {aiLimitDisplay}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-white/20 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-white rounded-full transition-all"
+                    style={{ width: `${aiProgressPct}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-between text-xs text-white/80">
+                <span>
+                  Campañas: {totalCampaigns ?? 0} / {plan?.campaign_limit ?? '—'}
+                </span>
+                <span>{aiRemaining} restantes</span>
+              </div>
+            </div>
+
+            {/* Quick actions */}
+            <div className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="text-sm font-semibold text-foreground mb-3">Acciones rápidas</h3>
+              <div className="space-y-1">
+                {(
+                  [
+                    { label: 'Nueva campaña', href: '/campaigns/new', icon: PlusCircle },
+                    { label: 'Ver campañas', href: '/campaigns', icon: Megaphone },
+                    { label: 'Mis productos', href: '/products', icon: Box },
+                    { label: 'Analíticas', href: '/analytics', icon: Activity },
+                  ] as const
+                ).map(({ label, href, icon: Icon }) => (
+                  <Link
+                    key={href}
+                    href={href}
+                    className="flex items-center gap-3 p-2.5 rounded-xl text-sm text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors group"
+                  >
+                    <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-muted group-hover:bg-brand/10 transition-colors">
+                      <Icon className="size-3.5 group-hover:text-brand transition-colors" />
+                    </div>
+                    <span>{label}</span>
+                    <ChevronRight className="size-3.5 ml-auto opacity-0 group-hover:opacity-100 text-brand transition-opacity" />
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </AnimatedSection>
     </div>
   )
 }

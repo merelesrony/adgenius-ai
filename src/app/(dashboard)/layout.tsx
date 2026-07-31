@@ -32,7 +32,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           onMenuClick={() => setSidebarOpen(true)}
         />
         <main className="flex-1 overflow-y-auto scrollbar-thin">
-          <div className="p-4 sm:p-6 animate-fade-in">{children}</div>
+          <div className="p-6 sm:p-8 animate-fade-in">{children}</div>
         </main>
       </div>
     </div>
