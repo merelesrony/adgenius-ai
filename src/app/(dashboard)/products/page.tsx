@@ -50,7 +50,7 @@ export default async function ProductsPage() {
             icon={Box}
             title="Sin productos"
             description="Agrega tus productos o servicios para usarlos en las campañas publicitarias."
-            action={{ label: 'Agregar primer producto', onClick: () => {} }}
+            action={{ label: 'Agregar primer producto', href: '/products' }}
           />
         ) : (
           <Table>

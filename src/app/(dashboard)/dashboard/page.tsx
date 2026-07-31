@@ -155,7 +155,7 @@ export default async function DashboardPage() {
             icon={Megaphone}
             title="Sin campañas todavía"
             description="Crea tu primera campaña publicitaria con ayuda de IA."
-            action={{ label: 'Crear campaña', onClick: () => {} }}
+            action={{ label: 'Crear campaña', href: '/campaigns/new' }}
             className="py-10"
           />
         ) : (

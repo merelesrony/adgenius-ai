@@ -1,20 +1,53 @@
+'use client'
+
 import type { LucideIcon } from 'lucide-react'
-import { Button } from './button'
+import Link from 'next/link'
+import { Button, buttonVariants } from './button'
 import { cn } from '@/lib/utils'
+
+interface ActionConfig {
+  label: string
+  href?: string
+  onClick?: () => void
+}
 
 interface EmptyStateProps {
   icon?: LucideIcon
   title: string
   description?: string
-  action?: {
-    label: string
-    onClick: () => void
-  }
-  secondaryAction?: {
-    label: string
-    onClick: () => void
-  }
+  action?: ActionConfig
+  secondaryAction?: ActionConfig
   className?: string
+}
+
+function ActionButton({ label, href, onClick }: ActionConfig) {
+  if (href) {
+    return (
+      <Link href={href} className={buttonVariants({ size: 'sm' })}>
+        {label}
+      </Link>
+    )
+  }
+  return (
+    <Button size="sm" onClick={onClick}>
+      {label}
+    </Button>
+  )
+}
+
+function SecondaryActionButton({ label, href, onClick }: ActionConfig) {
+  if (href) {
+    return (
+      <Link href={href} className={buttonVariants({ variant: 'outline', size: 'sm' })}>
+        {label}
+      </Link>
+    )
+  }
+  return (
+    <Button variant="outline" size="sm" onClick={onClick}>
+      {label}
+    </Button>
+  )
 }
 
 export function EmptyState({
@@ -43,16 +76,8 @@ export function EmptyState({
       )}
       {(action || secondaryAction) && (
         <div className="flex items-center gap-3">
-          {secondaryAction && (
-            <Button variant="outline" size="sm" onClick={secondaryAction.onClick}>
-              {secondaryAction.label}
-            </Button>
-          )}
-          {action && (
-            <Button size="sm" onClick={action.onClick}>
-              {action.label}
-            </Button>
-          )}
+          {secondaryAction && <SecondaryActionButton {...secondaryAction} />}
+          {action && <ActionButton {...action} />}
         </div>
       )}
     </div>

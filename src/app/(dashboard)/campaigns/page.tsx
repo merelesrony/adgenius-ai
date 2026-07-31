@@ -52,7 +52,7 @@ export default async function CampaignsPage() {
             icon={Megaphone}
             title="Sin campañas"
             description="Crea tu primera campaña y usa IA para generar el copy y la audiencia ideal para tu negocio."
-            action={{ label: 'Crear primera campaña', onClick: () => {} }}
+            action={{ label: 'Crear primera campaña', href: '/campaigns/new' }}
           />
         ) : (
           <Table>
