@@ -75,6 +75,103 @@ export const CURRENCIES = [
   { value: 'EUR', label: 'EUR — Euro' },
 ]
 
+// ── Creative Image Generation ──────────────────────────────────────────────────
+
+export type CreativeModel = 'flux' | 'flux-realism' | 'flux-anime' | 'flux-3d' | 'turbo'
+export type CreativeFormat = 'square' | 'landscape' | 'portrait' | 'story'
+
+export interface CreativePreset {
+  id: string
+  label: string
+  description: string
+  visualStyle: string           // compact summary sent by client in API body
+  advertisingConcept: string    // what the ad should communicate
+  environment: string           // scene/setting description
+  lightingStyle: string         // lighting approach
+  colorStyle: string            // color palette and mood
+  defaultModel: CreativeModel
+}
+
+export const CREATIVE_PRESETS: CreativePreset[] = [
+  {
+    id: 'automotive-premium',
+    label: 'Automotriz premium',
+    description: 'Concesionarios, repuestos y lujo',
+    visualStyle: 'luxury automotive photography, dark studio, metallic reflections, cinematic dramatic lighting',
+    advertisingConcept:
+      'Premium automotive brand advertisement designed to inspire desire, trust and prestige. Evokes high-end car brands. The product must feel exclusive, powerful and aspirational. Every visual element communicates quality.',
+    environment:
+      'Luxury automotive showroom with polished black marble floors, or dramatic dark studio with carbon fiber and steel surfaces. Premium car parts or performance tools visible as background props. Deep depth of field isolates the product center stage.',
+    lightingStyle:
+      'Cinematic studio lighting with dramatic metal reflections, professional rim lighting from behind, hard key light at 45 degrees, specular highlights on every metallic surface. Automotive commercial photography standard.',
+    colorStyle:
+      'Deep blacks, metallic silvers and platinum, gold accent tones, high contrast ratios. Dark luxury mood. Color palette should feel like a premium car advertisement from Porsche or BMW.',
+    defaultModel: 'flux-realism',
+  },
+  {
+    id: 'commercial-offer',
+    label: 'Oferta comercial',
+    description: 'Promociones y descuentos',
+    visualStyle: 'bold commercial photography, vibrant high contrast, clean white background, high-conversion promotional style',
+    advertisingConcept:
+      'High-conversion promotional advertisement designed to drive immediate purchase decisions. Must communicate value, urgency and clear product benefit. Strong visual hierarchy. Clean space reserved on one side for discount text and CTA overlay.',
+    environment:
+      'Clean minimalist studio with pure white or soft gradient background. Optional dynamic floating elements or geometric shapes that add energy without distracting from the product. Product must be center stage, large and clear.',
+    lightingStyle:
+      'Bright professional studio lighting with even illumination, no harsh shadows, clean white highlights on all product surfaces. Commercial product photography style: every label and detail perfectly visible and sharp.',
+    colorStyle:
+      'Energetic high-saturation palette. Bold red, orange or yellow accents to communicate urgency and value. Vibrant but clean composition. High contrast between product and background. Colors should motivate action.',
+    defaultModel: 'flux',
+  },
+  {
+    id: 'mechanic-shop',
+    label: 'Taller mecánico',
+    description: 'Reparaciones y servicios mecánicos',
+    visualStyle: 'professional automotive workshop, organized tools, industrial authentic, trust and reliability',
+    advertisingConcept:
+      'Professional automotive service advertisement conveying expertise, trust and reliability to car owners seeking quality maintenance. The product is what professional mechanics choose. Authentic credibility over polished perfection.',
+    environment:
+      'Modern professional mechanic workshop: organized tool wall with wrenches and sockets, hydraulic lift, engine components, clean industrial concrete floor. Professional equipment visible in background. Authentic automotive service setting that mechanics and car owners recognize.',
+    lightingStyle:
+      'Authentic workshop lighting: overhead industrial lamps mixed with natural light from garage doors. Real-world shadows that add depth and dimension. Soft fill light on product for clarity without killing the authentic atmosphere.',
+    colorStyle:
+      'Industrial palette: steel grays, worn metals, safety yellows and professional blues. Tool-steel textures. Trustworthy and reliable tones. The contrast between the rugged environment and the clean product packaging creates visual interest.',
+    defaultModel: 'flux-realism',
+  },
+  {
+    id: 'social-media',
+    label: 'Redes sociales',
+    description: 'Lifestyle y contenido viral',
+    visualStyle: 'lifestyle photography, bright airy minimal aesthetic, Instagram-worthy, high-engagement social feed',
+    advertisingConcept:
+      'Instagram and Facebook optimized creative designed for maximum engagement, saves and shares. Aspirational lifestyle content that makes the viewer say "I need this." Emotional connection over hard sell. Thumb-stopping visual quality that stands out in a social feed.',
+    environment:
+      'Clean minimal lifestyle settings: modern surface, marble counter, aspirational workspace or subtle outdoor context. The background reinforces the product\'s lifestyle benefit without competing with it. Simple enough to let the product breathe.',
+    lightingStyle:
+      'Soft natural window lighting or warm golden-hour warmth. Bright airy atmosphere typical of aspirational lifestyle photography. Soft directional shadows that feel organic. Instagram-worthy illumination: authentic, approachable and flattering.',
+    colorStyle:
+      'Fresh and modern palette: clean whites, warm neutrals, with accent tones that match the product. High saturation without being garish. The palette should feel like a curated Instagram feed — cohesive, editorial and contemporary.',
+    defaultModel: 'flux',
+  },
+]
+
+export const FORMAT_DIMENSIONS: Record<CreativeFormat, { width: number; height: number; label: string }> = {
+  square:    { width: 1024, height: 1024, label: 'Cuadrado (1:1)' },
+  landscape: { width: 1200, height: 630,  label: 'Horizontal (1.9:1)' },
+  portrait:  { width: 1080, height: 1350, label: 'Vertical (4:5)' },
+  story:     { width: 1080, height: 1920, label: 'Historia (9:16)' },
+}
+
+export const CREATIVE_MODELS: { value: CreativeModel; label: string }[] = [
+  { value: 'flux',         label: 'FLUX (rápido)' },
+  { value: 'flux-realism', label: 'FLUX Realism' },
+  { value: 'flux-anime',   label: 'FLUX Anime' },
+  { value: 'flux-3d',      label: 'FLUX 3D' },
+  { value: 'turbo',        label: 'Turbo (ultra rápido)' },
+]
+
+// ── Plan configs ───────────────────────────────────────────────────────────────
+
 export const PLAN_CONFIGS = [
   {
     name: 'starter' as const,

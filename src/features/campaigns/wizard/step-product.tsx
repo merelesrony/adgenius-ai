@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import { Input, Textarea, Select } from '@/components/ui/input'
 import { BUSINESS_CATEGORIES, CURRENCIES } from '@/constants/options'
 import { stepProductSchema } from '@/lib/validations/campaign'
-import { ImageUpload } from '../components/image-upload'
+import { CreativeSelector } from '../components/creative-selector'
 import { useWizard } from '../context'
 import type { ExistingProduct } from '../types'
 
@@ -202,13 +202,16 @@ export function StepProduct({ existingProducts, userId }: StepProductProps) {
 
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-foreground">
-              Imágenes del producto{' '}
+              Imagen del anuncio{' '}
               <span className="text-xs text-muted-foreground font-normal">(opcional)</span>
             </label>
-            <ImageUpload
+            <CreativeSelector
               images={data.productImages}
               onChange={(imgs) => update({ productImages: imgs })}
               userId={userId}
+              productName={data.productName}
+              productDescription={data.productDescription}
+              objective={data.objective}
               maxImages={5}
             />
           </div>

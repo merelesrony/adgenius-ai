@@ -56,6 +56,57 @@ export type Database = {
           },
         ]
       }
+      campaign_creatives: {
+        Row: {
+          id: string
+          user_id: string
+          campaign_id: string | null
+          image_url: string
+          prompt: string
+          model: string
+          format: string
+          preset_id: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          campaign_id?: string | null
+          image_url: string
+          prompt: string
+          model?: string
+          format?: string
+          preset_id?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          campaign_id?: string | null
+          image_url?: string
+          prompt?: string
+          model?: string
+          format?: string
+          preset_id?: string | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_creatives_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string
