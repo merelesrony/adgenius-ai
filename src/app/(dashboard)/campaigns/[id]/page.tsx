@@ -111,10 +111,12 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>
-            <Edit2 className="size-4" />
-            Editar
-          </Button>
+          <Link href={`/campaigns/${id}/edit`}>
+            <Button variant="outline" size="sm">
+              <Edit2 className="size-4" />
+              Editar
+            </Button>
+          </Link>
           <Button size="sm" disabled>
             Publicar en Meta
           </Button>

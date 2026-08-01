@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { AlertTriangle, ArrowRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
+import { checkCampaignLimit } from '@/lib/campaign-limit'
 import { CampaignWizard } from '@/features/campaigns/wizard/wizard-shell'
 import type { ExistingProduct, PlanLimitInfo } from '@/features/campaigns/types'
 
@@ -14,12 +15,9 @@ export default async function NewCampaignPage() {
 
   if (!user) redirect('/login')
 
-  type PlanShape = { name: string; display_name: string; campaign_limit: number }
-  type SubShape = { plan: PlanShape | null }
-
-  // Fetch plan info + products in parallel
-  const [{ data: canCreate }, { data: productsRaw }, { data: subRaw }] = await Promise.all([
-    supabase.rpc('check_campaign_limit', { p_user_id: user.id }),
+  // Fetch plan limit check and products in parallel
+  const [limitResult, { data: productsRaw }] = await Promise.all([
+    checkCampaignLimit(supabase, user.id),
     supabase
       .from('products')
       .select('id, name, description, price, currency, category, images')
@@ -27,31 +25,13 @@ export default async function NewCampaignPage() {
       .eq('is_active', true)
       .order('created_at', { ascending: false })
       .limit(50),
-    supabase
-      .from('subscriptions')
-      .select('*, plan:plans(name, display_name, campaign_limit)')
-      .eq('user_id', user.id)
-      .in('status', ['active', 'trial'])
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
   ])
 
-  const subscription = subRaw as SubShape | null
-  const plan = subscription?.plan ?? null
-
-  // Count current campaigns
-  const { count: currentCount } = await supabase
-    .from('campaigns')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .not('status', 'in', '("completed","failed")')
-
   const planLimit: PlanLimitInfo = {
-    canCreate: canCreate !== false,
-    currentCount: currentCount ?? 0,
-    limit: plan?.campaign_limit ?? 5,
-    planName: plan?.display_name ?? 'Starter',
+    canCreate: limitResult.canCreate,
+    currentCount: limitResult.count,
+    limit: limitResult.limit,
+    planName: limitResult.planName,
   }
 
   if (!planLimit.canCreate) {

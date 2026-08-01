@@ -9,6 +9,7 @@ import {
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
 import { callRpc } from '@/lib/supabase/rpc'
+import { checkCampaignLimit } from '@/lib/campaign-limit'
 import { StatCard } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -92,9 +93,7 @@ export default async function DashboardPage() {
 
   const stats = Array.isArray(campaignStats) ? campaignStats[0] : null
 
-  const { data: canCreate } = await callRpc(supabase, 'check_campaign_limit', {
-    p_user_id: user.id,
-  })
+  const { canCreate } = await checkCampaignLimit(supabase, user.id)
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -108,7 +107,7 @@ export default async function DashboardPage() {
             </p>
           </div>
           <Link href="/campaigns/new">
-            <Button disabled={canCreate === false} className="gap-2">
+            <Button disabled={!canCreate} className="gap-2">
               <PlusCircle className="size-4" />
               Nueva campaña
             </Button>

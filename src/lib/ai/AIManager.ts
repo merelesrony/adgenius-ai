@@ -54,103 +54,152 @@ export interface AIGenerateResult extends CopyResult {
 
 const SYSTEM_PROMPT = `Eres un experto senior en marketing digital y publicidad en Facebook Ads para mercados de habla hispana (Latinoamérica y España).
 Tienes más de 10 años de experiencia creando campañas de alto rendimiento para pequeñas y medianas empresas.
-Respondes ÚNICAMENTE con JSON válido y bien formado, sin texto adicional, sin markdown, sin bloques de código, sin explicaciones. Solo el objeto JSON.`
+Devuelve ÚNICAMENTE JSON válido y bien formado. No uses markdown. No uses bloques de código. No agregues texto antes ni después del JSON. La respuesta debe comenzar con { y terminar con }.`
 
-async function callClaude(prompt: string, model = 'claude-haiku-4-5-20251001'): Promise<string> {
+// ── Core API call ──────────────────────────────────────────────────────────────
+
+async function callClaude(
+  prompt: string,
+  model = 'claude-haiku-4-5-20251001',
+  maxTokens = 1500,
+): Promise<string> {
   const message = await client.messages.create({
     model,
-    max_tokens: 1500,
+    max_tokens: maxTokens,
     system: SYSTEM_PROMPT,
     messages: [{ role: 'user', content: prompt }],
   })
+
+  console.log('[Claude]', {
+    model,
+    stop_reason: message.stop_reason,
+    input_tokens: message.usage.input_tokens,
+    output_tokens: message.usage.output_tokens,
+  })
+
+  if (message.stop_reason === 'max_tokens') {
+    throw new Error(
+      `Claude cortó la respuesta por límite de tokens (max_tokens: ${maxTokens}). ` +
+      `Tokens usados: input=${message.usage.input_tokens} output=${message.usage.output_tokens}`,
+    )
+  }
+
   const block = message.content[0]
-  return block.type === 'text' ? block.text.trim() : ''
+  if (!block || block.type !== 'text' || !block.text.trim()) {
+    throw new Error(
+      `Claude devolvió contenido vacío (stop_reason: ${message.stop_reason}, blocks: ${message.content.length})`,
+    )
+  }
+
+  return block.text.trim()
 }
 
-function parseJSON<T>(raw: string): T {
-  const cleaned = raw.replace(/^```json\n?/, '').replace(/\n?```$/, '').trim()
-  return JSON.parse(cleaned) as T
+// ── JSON parsing ───────────────────────────────────────────────────────────────
+
+function parseJSON<T>(raw: string, context = 'unknown'): T {
+  console.log(`[AI RAW RESPONSE][${context}]\n${raw}`)
+
+  if (!raw || !raw.trim()) {
+    console.error(`[AI JSON PARSE ERROR][${context}] Respuesta vacía`)
+    throw new Error(`Claude devolvió respuesta vacía (context: ${context})`)
+  }
+
+  // Strip markdown code fences: ```json...``` or ```...```
+  let cleaned = raw
+    .replace(/^```(?:json)?\s*/i, '')
+    .replace(/\s*```\s*$/i, '')
+    .trim()
+
+  // If Claude still added surrounding text, extract the JSON object
+  const jsonStart = cleaned.indexOf('{')
+  const jsonEnd = cleaned.lastIndexOf('}')
+  if (jsonStart !== -1 && jsonEnd > jsonStart) {
+    cleaned = cleaned.slice(jsonStart, jsonEnd + 1)
+  }
+
+  console.log(`[AI CLEANED RESPONSE][${context}]\n${cleaned}`)
+
+  try {
+    return JSON.parse(cleaned) as T
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.error(`[AI JSON PARSE ERROR][${context}]`, {
+      error: msg,
+      cleanedPreview: cleaned.slice(0, 400),
+    })
+    throw new Error(`Error al parsear respuesta de Claude como JSON (${context}): ${msg}`)
+  }
 }
+
+// ── Shared helpers ─────────────────────────────────────────────────────────────
 
 function buildProductContext(ctx: ProductContext): string {
-  return `
-Producto/Servicio: ${ctx.name}
+  return `Producto/Servicio: ${ctx.name}
 Descripción: ${ctx.description}
 Categoría: ${ctx.category}
 Precio: ${ctx.price ? `${ctx.currency ?? 'USD'} ${ctx.price}` : 'No especificado'}
 Objetivo de la campaña: ${ctx.objective ?? 'ventas'}
 País: ${ctx.country ?? 'No especificado'}
 Ciudad/Zona: ${ctx.city ?? 'Todo el país'}
-Presupuesto diario: ${ctx.dailyBudget ? `$${ctx.dailyBudget} USD` : 'No especificado'}`.trim()
+Presupuesto diario: ${ctx.dailyBudget ? `$${ctx.dailyBudget} USD` : 'No especificado'}`
 }
+
+// ── Individual generators ──────────────────────────────────────────────────────
 
 export async function generateCopy(ctx: ProductContext): Promise<CopyResult> {
   const prompt = `Crea el copy para un anuncio de Facebook Ads para este producto:
 
 ${buildProductContext(ctx)}
 
-Responde con este JSON exacto:
-{
-  "headline": "título principal del anuncio (máximo 40 caracteres, impactante)",
-  "body": "texto principal del anuncio (100-250 caracteres, persuasivo, con emoji si aplica)",
-  "description": "descripción corta (máximo 90 caracteres, beneficio clave)",
-  "cta": "llamada a la acción en español (ej: Comprar Ahora, Más Información, Registrarse, Pedir Ahora)"
-}`
+Devuelve únicamente este JSON (sin texto adicional, sin markdown):
+{"headline":"título principal máx 40 chars","body":"texto principal 100-250 chars persuasivo","description":"descripción máx 90 chars","cta":"llamada a la acción en español"}`
 
-  const raw = await callClaude(prompt, 'claude-sonnet-5')
-  return parseJSON<CopyResult>(raw)
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 800)
+  return parseJSON<CopyResult>(raw, 'generateCopy')
 }
 
 export async function generateHeadline(ctx: ProductContext): Promise<string> {
-  const prompt = `Crea 1 título impactante para un anuncio de Facebook Ads de: ${ctx.name} - ${ctx.description}
-Máximo 40 caracteres. Responde con JSON: {"headline": "..."}`
+  const prompt = `Título impactante para Facebook Ads de: ${ctx.name} - ${ctx.description}. Máximo 40 caracteres.
+Devuelve únicamente: {"headline":"..."}`
 
   const raw = await callClaude(prompt)
-  return parseJSON<{ headline: string }>(raw).headline
+  return parseJSON<{ headline: string }>(raw, 'generateHeadline').headline
 }
 
 export async function generateDescription(ctx: ProductContext): Promise<string> {
-  const prompt = `Crea 1 descripción corta para Facebook Ads de: ${ctx.name} - ${ctx.description}
-Máximo 90 caracteres. Responde con JSON: {"description": "..."}`
+  const prompt = `Descripción corta para Facebook Ads de: ${ctx.name} - ${ctx.description}. Máximo 90 caracteres.
+Devuelve únicamente: {"description":"..."}`
 
   const raw = await callClaude(prompt)
-  return parseJSON<{ description: string }>(raw).description
+  return parseJSON<{ description: string }>(raw, 'generateDescription').description
 }
 
 export async function generateCTA(ctx: ProductContext): Promise<string> {
-  const prompt = `¿Cuál es el mejor CTA para un anuncio de "${ctx.name}" con objetivo "${ctx.objective ?? 'ventas'}"?
-Opciones: Comprar Ahora, Más Información, Contactar, Registrarse, Pedir Ahora, Ver Oferta, Descargar Ahora, Reservar.
-Responde con JSON: {"cta": "..."}`
+  const prompt = `Mejor CTA para anuncio de "${ctx.name}" con objetivo "${ctx.objective ?? 'ventas'}". Opciones: Comprar Ahora, Más Información, Contactar, Registrarse, Pedir Ahora, Ver Oferta, Descargar Ahora, Reservar.
+Devuelve únicamente: {"cta":"..."}`
 
   const raw = await callClaude(prompt)
-  return parseJSON<{ cta: string }>(raw).cta
+  return parseJSON<{ cta: string }>(raw, 'generateCTA').cta
 }
 
 export async function generateAudience(ctx: ProductContext): Promise<AudienceResult> {
-  const prompt = `Analiza este producto y define la audiencia óptima para Facebook Ads:
+  const prompt = `Audiencia óptima de Facebook Ads para este producto:
 
 ${buildProductContext(ctx)}
 
-Responde con este JSON exacto:
-{
-  "ageMin": número entre 18 y 65,
-  "ageMax": número entre 18 y 65,
-  "gender": "all" | "male" | "female",
-  "interests": ["interés relevante 1", "interés relevante 2", "interés relevante 3", "interés relevante 4", "interés relevante 5"],
-  "languages": ["es"],
-  "explanation": "explicación concisa de por qué elegí esta audiencia (máx 120 chars)"
-}`
+Devuelve únicamente este JSON (sin texto adicional, sin markdown):
+{"ageMin":25,"ageMax":45,"gender":"all","interests":["interés 1","interés 2","interés 3","interés 4","interés 5"],"languages":["es"],"explanation":"razón concisa de esta audiencia"}`
 
-  const raw = await callClaude(prompt, 'claude-sonnet-5')
-  return parseJSON<AudienceResult>(raw)
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 600)
+  return parseJSON<AudienceResult>(raw, 'generateAudience')
 }
 
 export async function generateKeywords(ctx: ProductContext): Promise<string[]> {
-  const prompt = `Lista 10 palabras clave relevantes para publicitar "${ctx.name}" en Facebook Ads.
-Responde con JSON: {"keywords": ["kw1", "kw2", ...]}`
+  const prompt = `10 palabras clave para publicitar "${ctx.name}" en Facebook Ads.
+Devuelve únicamente: {"keywords":["kw1","kw2","kw3","kw4","kw5","kw6","kw7","kw8","kw9","kw10"]}`
 
   const raw = await callClaude(prompt)
-  return parseJSON<{ keywords: string[] }>(raw).keywords
+  return parseJSON<{ keywords: string[] }>(raw, 'generateKeywords').keywords
 }
 
 export async function analyzeProduct(ctx: ProductContext): Promise<{
@@ -162,15 +211,11 @@ export async function analyzeProduct(ctx: ProductContext): Promise<{
 
 ${buildProductContext(ctx)}
 
-Responde con este JSON:
-{
-  "strengths": ["fortaleza 1", "fortaleza 2", "fortaleza 3"],
-  "suggestions": ["sugerencia de mejora 1", "sugerencia 2"],
-  "targetDemographic": "descripción del comprador ideal en 1 oración"
-}`
+Devuelve únicamente este JSON (sin texto adicional, sin markdown):
+{"strengths":["fortaleza 1","fortaleza 2","fortaleza 3"],"suggestions":["sugerencia 1","sugerencia 2"],"targetDemographic":"descripción del comprador ideal en 1 oración"}`
 
   const raw = await callClaude(prompt)
-  return parseJSON(raw)
+  return parseJSON(raw, 'analyzeProduct')
 }
 
 export async function scoreCampaign(params: {
@@ -187,109 +232,74 @@ export async function scoreCampaign(params: {
       ? `Edad: ${ctx.targetAgeMin}-${ctx.targetAgeMax} | Género: ${ctx.targetGender} | Intereses: ${ctx.targetInterests?.slice(0, 3).join(', ')}`
       : 'No definida'
 
-  const prompt = `Evalúa esta campaña de Facebook Ads y dala una puntuación:
+  const prompt = `Evalúa esta campaña de Facebook Ads (cada categoría de 0 a 25):
 
 PRODUCTO: ${ctx.name}
-COPY:
-- Título: ${copy.headline}
-- Texto: ${copy.body}
-- Descripción: ${copy.description}
-- CTA: ${copy.cta}
+COPY — Título: ${copy.headline} | Texto: ${copy.body} | Descripción: ${copy.description} | CTA: ${copy.cta}
 AUDIENCIA: ${audienceInfo}
-PRESUPUESTO DIARIO: ${ctx.dailyBudget ? `$${ctx.dailyBudget}` : 'No definido'}
+PRESUPUESTO: ${ctx.dailyBudget ? `$${ctx.dailyBudget}/día` : 'No definido'}
 OBJETIVO: ${ctx.objective ?? 'ventas'}
 
-Evalúa cada categoría de 0 a 25 puntos:
-- copy: calidad y persuasión del texto (0-25)
-- audience: relevancia y especificidad de la audiencia (0-25)
-- budget: adecuación del presupuesto al objetivo (0-25)
-- targeting: precisión del targeting geográfico y de intereses (0-25)
+Devuelve únicamente este JSON (sin texto adicional, sin markdown):
+{"total":75,"breakdown":{"copy":20,"audience":18,"budget":17,"targeting":20},"recommendations":["recomendación concreta 1","recomendación 2","recomendación 3"]}`
 
-Responde con este JSON exacto:
-{
-  "total": suma de los 4 valores (0-100),
-  "breakdown": {
-    "copy": número 0-25,
-    "audience": número 0-25,
-    "budget": número 0-25,
-    "targeting": número 0-25
-  },
-  "recommendations": ["recomendación accionable 1", "recomendación 2", "recomendación 3"]
-}`
-
-  const raw = await callClaude(prompt, 'claude-sonnet-5')
-  return parseJSON<ScoreResult>(raw)
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 600)
+  return parseJSON<ScoreResult>(raw, 'scoreCampaign')
 }
 
 export async function generateFlyerPrompt(ctx: ProductContext): Promise<string> {
-  const prompt = `Crea un prompt en inglés para generar una imagen de anuncio publicitario con IA (DALL-E / Stable Diffusion) para:
-
-Producto: ${ctx.name}
-Descripción: ${ctx.description}
-Categoría: ${ctx.category}
-
-El prompt debe ser visual, descriptivo, profesional y específico para Facebook Ads.
-Responde con JSON: {"prompt": "..."}`
+  const prompt = `Prompt en inglés para generar imagen publicitaria con IA (DALL-E/Stable Diffusion) para:
+Producto: ${ctx.name} | Descripción: ${ctx.description} | Categoría: ${ctx.category}
+El prompt debe ser visual, profesional, específico para Facebook Ads.
+Devuelve únicamente: {"prompt":"..."}`
 
   const raw = await callClaude(prompt)
-  return parseJSON<{ prompt: string }>(raw).prompt
+  return parseJSON<{ prompt: string }>(raw, 'generateFlyerPrompt').prompt
 }
+
+// ── Main: generateAll ──────────────────────────────────────────────────────────
 
 export async function generateAll(ctx: ProductContext): Promise<AIGenerateResult> {
   const needsAIAudience = ctx.audienceMode === 'ai'
 
-  const manualAudienceInfo = needsAIAudience
+  const manualAudienceSection = needsAIAudience
     ? ''
-    : `
-AUDIENCIA DEFINIDA MANUALMENTE:
+    : `\nAUDIENCIA MANUAL:
 - Edad: ${ctx.targetAgeMin ?? 18}-${ctx.targetAgeMax ?? 65}
 - Género: ${ctx.targetGender ?? 'all'}
 - Intereses: ${ctx.targetInterests?.join(', ') || 'No especificado'}
 - Idiomas: ${ctx.targetLanguages?.join(', ') || 'es'}`
 
+  const audienceField = needsAIAudience
+    ? `,"audience":{"ageMin":25,"ageMax":45,"gender":"all","interests":["interés 1","interés 2","interés 3","interés 4","interés 5"],"languages":["es"],"explanation":"razón de esta audiencia en 1 oración"}`
+    : ''
+
   const audienceInstruction = needsAIAudience
-    ? `También define la audiencia óptima para el producto basándote en tus conocimientos de marketing.`
-    : `Usa la audiencia manual definida arriba para calcular el score de audiencia.`
+    ? 'Define también la audiencia óptima para este producto.'
+    : 'Usa la audiencia manual para calcular el score de audiencia.'
 
-  const prompt = `Eres un experto en Facebook Ads. Genera el contenido completo para esta campaña:
+  const prompt = `Genera el contenido completo de esta campaña de Facebook Ads. ${audienceInstruction}
 
-${buildProductContext(ctx)}
-${manualAudienceInfo}
+PRODUCTO:
+${buildProductContext(ctx)}${manualAudienceSection}
 
-${audienceInstruction}
+INSTRUCCIÓN: Devuelve únicamente JSON válido. No uses markdown. No agregues texto antes ni después. La respuesta debe empezar con { y terminar con }.
 
-Evalúa la campaña con estas puntuaciones (0-25 cada una):
-- copy: calidad y persuasión del texto
-- audience: relevancia de la audiencia
-- budget: ${ctx.dailyBudget ? `presupuesto de $${ctx.dailyBudget}/día para ${ctx.objective}` : 'presupuesto no definido (5 puntos máximo)'}
-- targeting: precisión geográfica y de intereses
+Estructura requerida (reemplaza los valores de ejemplo con el contenido real):
+{"headline":"título impactante máx 40 chars","body":"copy principal 100-250 chars con emojis si aplica","description":"descripción máx 90 chars con beneficio clave","cta":"llamada a la acción en español"${audienceField},"score":{"total":75,"breakdown":{"copy":20,"audience":18,"budget":17,"targeting":20},"recommendations":["recomendación accionable 1","recomendación 2","recomendación 3"]}}`
 
-Responde con este JSON exacto (sin texto extra, solo el JSON):
-{
-  "headline": "título impactante máx 40 chars",
-  "body": "copy principal 100-250 chars con emojis si aplica",
-  "description": "descripción corta máx 90 chars con beneficio clave",
-  "cta": "llamada a la acción en español"${needsAIAudience ? `,
-  "audience": {
-    "ageMin": número 18-65,
-    "ageMax": número 18-65,
-    "gender": "all" | "male" | "female",
-    "interests": ["interés 1", "interés 2", "interés 3", "interés 4", "interés 5"],
-    "languages": ["es"],
-    "explanation": "razón de esta audiencia en 1 oración"
-  }` : ''},
-  "score": {
-    "total": suma de breakdown (0-100),
-    "breakdown": {
-      "copy": 0-25,
-      "audience": 0-25,
-      "budget": 0-25,
-      "targeting": 0-25
-    },
-    "recommendations": ["recomendación 1", "recomendación 2", "recomendación 3"]
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 2048)
+  const result = parseJSON<AIGenerateResult>(raw, 'generateAll')
+
+  // Validate required fields before returning
+  if (!result.headline || !result.body || !result.cta) {
+    console.error('[generateAll] Campos requeridos ausentes en respuesta:', result)
+    throw new Error('La respuesta de Claude no contiene los campos requeridos (headline, body, cta)')
   }
-}`
+  if (!result.score || typeof result.score.total !== 'number') {
+    console.error('[generateAll] Campo score ausente o inválido:', result)
+    throw new Error('La respuesta de Claude no contiene un score válido')
+  }
 
-  const raw = await callClaude(prompt, 'claude-sonnet-5')
-  return parseJSON<AIGenerateResult>(raw)
+  return result
 }

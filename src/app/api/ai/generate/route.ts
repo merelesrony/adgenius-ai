@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
       if ((aiUsedCount ?? 0) >= aiLimit) {
         return NextResponse.json(
           { error: `Límite de generaciones IA alcanzado (${aiLimit}/mes). Actualiza tu plan para continuar.` },
-          { status: 429 }
+          { status: 429 },
         )
       }
     }
@@ -69,11 +69,13 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) {
       return NextResponse.json(
         { error: 'Datos inválidos', details: parsed.error.flatten() },
-        { status: 400 }
+        { status: 400 },
       )
     }
 
     const d = parsed.data
+
+    console.log('[AI generate] Iniciando generación para producto:', d.productName, '| audienceMode:', d.audienceMode)
 
     const result = await generateAll({
       name: d.productName,
@@ -93,10 +95,21 @@ export async function POST(req: NextRequest) {
       targetLanguages: d.targetLanguages,
     })
 
-    // Log AI usage
-    await supabase.from("ai_usage").insert({
+    // Final validation before persisting usage
+    if (!result.headline || !result.body || !result.cta || !result.score) {
+      console.error('[AI generate] Resultado incompleto:', result)
+      return NextResponse.json(
+        { error: 'Error generando campaña IA. Intenta nuevamente.' },
+        { status: 500 },
+      )
+    }
+
+    console.log('[AI generate] Generación exitosa | score:', result.score.total)
+
+    // Log AI usage only on success
+    await supabase.from('ai_usage').insert({
       user_id: user.id,
-      type: "copy",
+      type: 'copy',
       tokens_used: null,
     })
 
@@ -104,6 +117,11 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error('[AI generate]', err)
     const message = err instanceof Error ? err.message : 'Error inesperado'
-    return NextResponse.json({ error: message }, { status: 500 })
+
+    // Return a user-friendly message while logging the technical detail
+    return NextResponse.json(
+      { error: 'Error generando campaña IA. Intenta nuevamente.', detail: message },
+      { status: 500 },
+    )
   }
 }
