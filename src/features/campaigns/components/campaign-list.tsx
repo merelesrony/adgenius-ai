@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { cn, formatDate } from '@/lib/utils'
+import { formatCurrency } from '@/lib/currency'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { StatusBadge } from '@/components/ui/badge'
@@ -196,7 +197,7 @@ export function CampaignList({ campaigns }: CampaignListProps) {
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
                       {c.daily_budget
-                        ? `$${c.daily_budget}${c.currency ? ` ${c.currency}` : ''}`
+                        ? formatCurrency(c.daily_budget, c.currency ?? 'USD') + '/día'
                         : '—'}
                     </TableCell>
                     <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">

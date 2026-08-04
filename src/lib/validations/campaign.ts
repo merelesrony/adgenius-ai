@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { DEFAULT_CURRENCY } from '@/lib/currency'
 
 export const CAMPAIGN_OBJECTIVES = [
   { value: 'awareness', label: 'Reconocimiento de marca' },
@@ -24,14 +25,14 @@ export const stepProductSchema = z.object({
   existingProductId: z.string().uuid().nullable().optional(),
   productName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres').max(120),
   productPrice: z.number().positive('El precio debe ser mayor a 0').nullable().optional(),
-  productCurrency: z.string().default('USD'),
+  productCurrency: z.string().default(DEFAULT_CURRENCY),
   productCategory: z.string().min(1, 'Selecciona una categoría'),
   productDescription: z.string().min(10, 'La descripción debe tener al menos 10 caracteres').max(1000),
   productImages: z.array(z.string().url()).max(5, 'Máximo 5 imágenes'),
 })
 
 export const stepBudgetSchema = z.object({
-  dailyBudget: z.number().min(1, 'El presupuesto mínimo es $1/día'),
+  dailyBudget: z.number().min(1, 'El presupuesto mínimo es 1 unidad de la moneda seleccionada/día'),
   startDate: z.string().min(1, 'Selecciona una fecha de inicio'),
   endDate: z.string().optional().nullable(),
   audienceMode: z.enum(['manual', 'ai']),

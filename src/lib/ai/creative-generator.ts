@@ -51,14 +51,27 @@ async function buildImagePrompt(
   const { width, height } = FORMAT_DIMENSIONS[input.format]
   const formatLabel = FORMAT_DIMENSIONS[input.format].label
 
+  // [DEBUG] brief that reaches the generator
+  console.log('[generator:DEBUG] ─── BRIEF RECIBIDO ──────────────────────────────────')
+  console.log('[generator:DEBUG] product:', input.product)
+  console.log('[generator:DEBUG] presetId:', input.presetId ?? 'none')
+  console.log('[generator:DEBUG] advertisingConcept:', input.advertisingConcept.slice(0, 80) + '...')
+  console.log('[generator:DEBUG] format:', input.format, `${width}x${height}`)
+  console.log('[generator:DEBUG] model:', input.model)
+  console.log('[generator:DEBUG] ────────────────────────────────────────────────────')
+
   const message = await client.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 700,
     system:
-      'You are a Senior AI Advertising Creative Director specialized in automotive, ' +
-      'ecommerce and consumer goods advertising photography.\n\n' +
+      'You are a Senior AI Advertising Creative Director with expertise across ALL product categories and industries: ' +
+      'fashion, beauty, cosmetics, food and beverage, technology, electronics, furniture and home, healthcare, ' +
+      'real estate, automotive, industrial, corporate, sports, travel, entertainment, and any other category.\n\n' +
       'You create professional advertising prompts for AI image generation models (FLUX, Stable Diffusion) ' +
       'that produce agency-quality advertising creatives for Facebook Ads and Instagram Ads.\n\n' +
+      'CRITICAL: Your prompts must be SPECIFIC to the actual product category. A perfume must look like a luxury ' +
+      'fragrance ad. A pizza must look like food photography. A laptop must look like a tech ad. ' +
+      'Never default to automotive or industrial aesthetics for unrelated products.\n\n' +
       'Your output is ALWAYS valid JSON only. No text before or after the JSON. No markdown fences. No explanations.',
     messages: [
       {
@@ -114,6 +127,16 @@ async function buildImagePrompt(
     console.error('[buildImagePrompt] JSON parse error. Raw:', raw.slice(0, 300))
     throw new Error('Error parseando respuesta de Claude para el prompt visual')
   }
+
+  // [DEBUG] Claude JSON response
+  console.log('[generator:DEBUG] ─── RESPUESTA JSON DE CLAUDE ───────────────────────')
+  console.log('[generator:DEBUG] image_prompt:', parsed.image_prompt?.slice(0, 200))
+  console.log('[generator:DEBUG] negative_prompt:', parsed.negative_prompt?.slice(0, 120))
+  console.log('[generator:DEBUG] style:', parsed.style)
+  console.log('[generator:DEBUG] composition:', parsed.composition)
+  console.log('[generator:DEBUG] lighting:', parsed.lighting)
+  console.log('[generator:DEBUG] camera:', parsed.camera)
+  console.log('[generator:DEBUG] ────────────────────────────────────────────────────')
 
   if (!parsed.image_prompt?.trim()) {
     throw new Error('Claude generó un image_prompt vacío')

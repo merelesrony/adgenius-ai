@@ -67,6 +67,16 @@ export type Database = {
           format: string
           preset_id: string | null
           created_at: string
+          product_id: string | null
+          is_favorite: boolean
+          category: string | null
+          is_primary: boolean
+          headline: string | null
+          primary_text: string | null
+          description: string | null
+          cta: string | null
+          variant: string | null
+          variant_label: string | null
         }
         Insert: {
           id?: string
@@ -78,6 +88,16 @@ export type Database = {
           format?: string
           preset_id?: string | null
           created_at?: string
+          product_id?: string | null
+          is_favorite?: boolean
+          category?: string | null
+          is_primary?: boolean
+          headline?: string | null
+          primary_text?: string | null
+          description?: string | null
+          cta?: string | null
+          variant?: string | null
+          variant_label?: string | null
         }
         Update: {
           id?: string
@@ -89,6 +109,16 @@ export type Database = {
           format?: string
           preset_id?: string | null
           created_at?: string
+          product_id?: string | null
+          is_favorite?: boolean
+          category?: string | null
+          is_primary?: boolean
+          headline?: string | null
+          primary_text?: string | null
+          description?: string | null
+          cta?: string | null
+          variant?: string | null
+          variant_label?: string | null
         }
         Relationships: [
           {
@@ -103,6 +133,70 @@ export type Database = {
             columns: ["campaign_id"]
             isOneToOne: false
             referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_creatives_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_optimizations: {
+        Row: {
+          id: string
+          campaign_id: string
+          user_id: string
+          type: string
+          priority: string
+          problem: string
+          recommendation: string
+          before_value: string | null
+          after_value: string | null
+          status: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          campaign_id: string
+          user_id: string
+          type: string
+          priority: string
+          problem: string
+          recommendation: string
+          before_value?: string | null
+          after_value?: string | null
+          status?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          campaign_id?: string
+          user_id?: string
+          type?: string
+          priority?: string
+          problem?: string
+          recommendation?: string
+          before_value?: string | null
+          after_value?: string | null
+          status?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_optimizations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_optimizations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -267,7 +361,9 @@ export type Database = {
           ai_generated: boolean | null
           ai_recommendations: Json | null
           ai_score_breakdown: Json | null
+          ai_strategy: Json | null
           audience_mode: Database["public"]["Enums"]["audience_mode"]
+          brand_kit: Json | null
           campaign_score: number | null
           created_at: string
           currency: string | null
@@ -285,6 +381,11 @@ export type Database = {
           meta_campaign_id: string | null
           name: string
           objective: string | null
+          optimizer_run_at: string | null
+          optimizer_score: number | null
+          optimizer_strengths: Json | null
+          optimizer_summary: string | null
+          platforms: Json | null
           product_category: string | null
           product_currency: string | null
           product_description: string | null
@@ -312,7 +413,9 @@ export type Database = {
           ai_generated?: boolean | null
           ai_recommendations?: Json | null
           ai_score_breakdown?: Json | null
+          ai_strategy?: Json | null
           audience_mode?: Database["public"]["Enums"]["audience_mode"]
+          brand_kit?: Json | null
           campaign_score?: number | null
           created_at?: string
           currency?: string | null
@@ -330,6 +433,11 @@ export type Database = {
           meta_campaign_id?: string | null
           name: string
           objective?: string | null
+          optimizer_run_at?: string | null
+          optimizer_score?: number | null
+          optimizer_strengths?: Json | null
+          optimizer_summary?: string | null
+          platforms?: Json | null
           product_category?: string | null
           product_currency?: string | null
           product_description?: string | null
@@ -357,7 +465,9 @@ export type Database = {
           ai_generated?: boolean | null
           ai_recommendations?: Json | null
           ai_score_breakdown?: Json | null
+          ai_strategy?: Json | null
           audience_mode?: Database["public"]["Enums"]["audience_mode"]
+          brand_kit?: Json | null
           campaign_score?: number | null
           created_at?: string
           currency?: string | null
@@ -375,6 +485,11 @@ export type Database = {
           meta_campaign_id?: string | null
           name?: string
           objective?: string | null
+          optimizer_run_at?: string | null
+          optimizer_score?: number | null
+          optimizer_strengths?: Json | null
+          optimizer_summary?: string | null
+          platforms?: Json | null
           product_category?: string | null
           product_currency?: string | null
           product_description?: string | null
@@ -459,6 +574,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "meta_accounts_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_strategies: {
+        Row: {
+          id: string
+          user_id: string
+          product_name: string
+          product_description: string | null
+          product_price: number | null
+          product_currency: string
+          product_category: string | null
+          strategy_json: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          product_name: string
+          product_description?: string | null
+          product_price?: number | null
+          product_currency?: string
+          product_category?: string | null
+          strategy_json: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          product_name?: string
+          product_description?: string | null
+          product_price?: number | null
+          product_currency?: string
+          product_category?: string | null
+          strategy_json?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_strategies_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"

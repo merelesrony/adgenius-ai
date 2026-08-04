@@ -7,6 +7,123 @@ import type { ActionResult } from '@/types'
 import type { Database } from '@/types/database'
 import { checkCampaignLimit } from '@/lib/campaign-limit'
 import type { AudienceResult, ScoreResult } from './types'
+import { convertFromUSD } from '@/lib/currency'
+import type { MarketingStrategy } from '@/features/ai-strategy/types'
+
+export interface CreateFromStrategyInput {
+  strategy: MarketingStrategy
+  productName: string
+  productDescription?: string
+  productPrice?: number | null
+  productCurrency: string
+  imageUrl?: string | null
+  strategyId?: string
+}
+
+export async function createCampaignFromStrategyAction(
+  input: CreateFromStrategyInput,
+): Promise<ActionResult<string>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { canCreate, limit, count } = await checkCampaignLimit(supabase, user.id)
+    if (!canCreate) {
+      return {
+        success: false,
+        error: `Límite de campañas alcanzado. Tu plan permite ${limit} campañas activas y ya tienes ${count}.`,
+      }
+    }
+
+    const { strategy, productName, productDescription, productPrice, productCurrency, imageUrl } = input
+    const { productAnalysis, recommendedObjective, targetAudience, budgetRecommendation, adCopy } = strategy
+
+    // Use user's business profile for default country/city
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('country, city')
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const defaultCountry = business?.country ?? ''
+    const defaultCity = business?.city ?? null
+
+    // Convert budget from USD to user's currency
+    const dailyBudget = Math.round(convertFromUSD(budgetRecommendation.testingUSD, productCurrency))
+
+    const aiCopy = {
+      headline: adCopy.headline,
+      body: adCopy.primaryText,
+      description: adCopy.primaryText.slice(0, 90),
+      cta: adCopy.cta,
+    }
+
+    const aiAudience = {
+      ageMin: targetAudience.ageMin,
+      ageMax: targetAudience.ageMax,
+      gender: targetAudience.gender,
+      interests: targetAudience.interests,
+      languages: ['es'],
+      explanation: `Audiencia generada por IA para ${productAnalysis.detectedCategory}`,
+    }
+
+    const today = new Date().toISOString().split('T')[0]
+
+    const { data: campaignRaw, error } = await supabase
+      .from('campaigns')
+      .insert({
+        user_id: user.id,
+        name: `${productName} — IA`,
+        status: 'draft',
+        objective: recommendedObjective.value,
+        product_name: productName,
+        product_description: productDescription ?? null,
+        product_price: productPrice ?? null,
+        product_currency: productCurrency,
+        product_category: productAnalysis.detectedCategory,
+        currency: productCurrency,
+        flyer_url: imageUrl ?? null,
+        daily_budget: dailyBudget,
+        start_date: today,
+        end_date: null,
+        target_country: defaultCountry,
+        target_city: defaultCity,
+        target_radius_km: 20,
+        audience_mode: 'ai',
+        target_age_min: targetAudience.ageMin,
+        target_age_max: targetAudience.ageMax,
+        target_gender: targetAudience.gender,
+        target_interests: JSON.parse(JSON.stringify(targetAudience.interests)),
+        target_languages: ['es'],
+        ai_copy: JSON.parse(JSON.stringify(aiCopy)),
+        ai_audience: JSON.parse(JSON.stringify(aiAudience)),
+        ai_generated: true,
+        ai_recommendations: JSON.parse(JSON.stringify(targetAudience.behaviors ?? [])),
+      })
+      .select('id')
+      .single()
+
+    const campaign = campaignRaw as { id: string } | null
+    if (error || !campaign) {
+      console.error('[createCampaignFromStrategyAction]', error)
+      return { success: false, error: 'Error al crear la campaña' }
+    }
+
+    await supabase.from('ai_usage').insert({
+      user_id: user.id,
+      type: 'strategy_to_campaign',
+      campaign_id: campaign.id,
+    })
+
+    revalidatePath('/campaigns')
+    revalidatePath('/dashboard')
+    return { success: true, data: campaign.id }
+  } catch (err) {
+    console.error('[createCampaignFromStrategyAction]', err)
+    return { success: false, error: 'Error inesperado al crear la campaña' }
+  }
+}
 
 interface SaveCampaignInput {
   name: string
@@ -277,6 +394,7 @@ const updateCampaignSchema = z.object({
     description: z.string(),
     cta: z.string(),
   }).nullable().optional(),
+  flyer_url: z.string().nullable().optional(),
 })
 
 export type UpdateCampaignInput = z.infer<typeof updateCampaignSchema>
@@ -314,6 +432,7 @@ export async function updateCampaignAction(
       target_interests: JSON.parse(JSON.stringify(d.target_interests)),
       target_languages: JSON.parse(JSON.stringify(d.target_languages)),
       ai_copy: d.ai_copy ? JSON.parse(JSON.stringify(d.ai_copy)) : null,
+      ...(d.flyer_url !== undefined && { flyer_url: d.flyer_url }),
     }
 
     const { error } = await supabase
@@ -336,5 +455,212 @@ export async function updateCampaignAction(
   } catch (err) {
     console.error('[updateCampaignAction]', err)
     return { success: false, error: 'Error inesperado al actualizar la campaña' }
+  }
+}
+
+// ── Campaign Optimizer actions ────────────────────────────────────────────────
+
+type AiCopyObject = { headline?: string; body?: string; description?: string; cta?: string }
+
+export async function applyCampaignOptimizationAction(
+  optimizationId: string,
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // Load the optimization
+    const { data: optRaw } = await supabase
+      .from('campaign_optimizations')
+      .select('*')
+      .eq('id', optimizationId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!optRaw) return { success: false, error: 'Mejora no encontrada' }
+
+    const opt = optRaw as Database['public']['Tables']['campaign_optimizations']['Row']
+    const campaignId = opt.campaign_id
+    const afterValue = opt.after_value ?? ''
+
+    // Load current campaign for merging
+    const { data: campRaw } = await supabase
+      .from('campaigns')
+      .select('ai_copy, daily_budget')
+      .eq('id', campaignId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    const currentCopy = (campRaw?.ai_copy ?? {}) as AiCopyObject
+
+    let campaignUpdate: Database['public']['Tables']['campaigns']['Update'] = {}
+
+    switch (opt.type) {
+      case 'copy': {
+        let parsed: AiCopyObject = {}
+        try { parsed = JSON.parse(afterValue) } catch { parsed = { headline: afterValue } }
+        campaignUpdate = { ai_copy: { ...currentCopy, ...parsed } }
+        break
+      }
+      case 'cta': {
+        campaignUpdate = { ai_copy: { ...currentCopy, cta: afterValue } }
+        break
+      }
+      case 'audience': {
+        try {
+          const a = JSON.parse(afterValue) as { ageMin?: number; ageMax?: number; gender?: string; interests?: string[] }
+          if (a.ageMin) campaignUpdate.target_age_min = a.ageMin
+          if (a.ageMax) campaignUpdate.target_age_max = a.ageMax
+          if (a.gender) campaignUpdate.target_gender = a.gender as 'all' | 'male' | 'female'
+          if (a.interests) campaignUpdate.target_interests = a.interests
+        } catch { /* malformed JSON — skip */ }
+        break
+      }
+      case 'budget': {
+        const n = parseFloat(afterValue)
+        if (!isNaN(n) && n > 0) campaignUpdate = { daily_budget: n }
+        break
+      }
+      case 'creative':
+      default:
+        break
+    }
+
+    if (Object.keys(campaignUpdate).length > 0) {
+      const { error: updateError } = await supabase
+        .from('campaigns')
+        .update(campaignUpdate)
+        .eq('id', campaignId)
+        .eq('user_id', user.id)
+      if (updateError) return { success: false, error: 'Error al actualizar la campaña' }
+    }
+
+    await supabase
+      .from('campaign_optimizations')
+      .update({ status: 'accepted' })
+      .eq('id', optimizationId)
+      .eq('user_id', user.id)
+
+    revalidatePath(`/campaigns/${campaignId}/review`)
+    revalidatePath(`/campaigns/${campaignId}`)
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function rejectCampaignOptimizationAction(
+  optimizationId: string,
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { data: optRaw } = await supabase
+      .from('campaign_optimizations')
+      .select('campaign_id')
+      .eq('id', optimizationId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!optRaw) return { success: false, error: 'Mejora no encontrada' }
+
+    await supabase
+      .from('campaign_optimizations')
+      .update({ status: 'rejected' })
+      .eq('id', optimizationId)
+      .eq('user_id', user.id)
+
+    const campaignId = (optRaw as { campaign_id: string }).campaign_id
+    revalidatePath(`/campaigns/${campaignId}/review`)
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function saveOptimizedCreativeAction(
+  campaignId: string,
+  creative: {
+    imageUrl: string
+    imagePrompt: string
+    headline: string
+    primaryText: string
+    description: string
+    cta: string
+    variant: string
+    variantLabel: string
+    format: string
+  },
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    // Unmark all existing primaries for this campaign
+    await supabase
+      .from('campaign_creatives')
+      .update({ is_primary: false })
+      .eq('campaign_id', campaignId)
+      .eq('user_id', user.id)
+
+    // Insert new primary creative
+    const { error } = await supabase.from('campaign_creatives').insert({
+      user_id: user.id,
+      campaign_id: campaignId,
+      image_url: creative.imageUrl,
+      prompt: creative.imagePrompt,
+      model: 'flux-realism',
+      format: creative.format,
+      is_primary: true,
+      headline: creative.headline,
+      primary_text: creative.primaryText,
+      description: creative.description,
+      cta: creative.cta,
+      variant: creative.variant,
+      variant_label: creative.variantLabel,
+    })
+    if (error) return { success: false, error: 'Error al guardar el creativo' }
+
+    // Update campaign flyer_url
+    await supabase
+      .from('campaigns')
+      .update({ flyer_url: creative.imageUrl })
+      .eq('id', campaignId)
+      .eq('user_id', user.id)
+
+    revalidatePath(`/campaigns/${campaignId}/review`)
+    revalidatePath(`/campaigns/${campaignId}`)
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function updateCampaignCopyAction(
+  campaignId: string,
+  copy: { headline: string; body: string; description: string; cta: string },
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { error } = await supabase
+      .from('campaigns')
+      .update({ ai_copy: copy })
+      .eq('id', campaignId)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: 'Error al guardar el copy' }
+
+    revalidatePath(`/campaigns/${campaignId}/review`)
+    revalidatePath(`/campaigns/${campaignId}`)
+    return { success: true, data: undefined }
+  } catch {
+    return { success: false, error: 'Error inesperado' }
   }
 }

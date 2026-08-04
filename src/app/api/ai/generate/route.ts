@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { createClient } from '@/lib/supabase/server'
 import { generateAll } from '@/lib/ai/AIManager'
+import { DEFAULT_CURRENCY } from '@/lib/currency'
 
 const schema = z.object({
   productName: z.string().min(2),
   productDescription: z.string().min(5),
   productCategory: z.string(),
   productPrice: z.number().nullable().optional(),
-  productCurrency: z.string().default('USD'),
+  productCurrency: z.string().default(DEFAULT_CURRENCY),
   country: z.string().optional(),
   city: z.string().optional(),
   objective: z.string().default('sales'),

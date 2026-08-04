@@ -1,14 +1,21 @@
 'use client'
 
-import { useState } from 'react'
-import { Package, PlusCircle, Check } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { Package, PlusCircle, Check, Sparkles, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Input, Textarea, Select } from '@/components/ui/input'
 import { BUSINESS_CATEGORIES, CURRENCIES } from '@/constants/options'
+import { DEFAULT_CURRENCY } from '@/lib/currency'
 import { stepProductSchema } from '@/lib/validations/campaign'
 import { CreativeSelector } from '../components/creative-selector'
 import { useWizard } from '../context'
 import type { ExistingProduct } from '../types'
+
+interface CategorySuggestion {
+  category: string
+  label: string
+  confidence: 'high' | 'medium' | 'low'
+}
 
 interface StepProductProps {
   existingProducts: ExistingProduct[]
@@ -19,13 +26,65 @@ export function StepProduct({ existingProducts, userId }: StepProductProps) {
   const { data, update, next, back } = useWizard()
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [useExisting, setUseExisting] = useState(!!data.existingProductId)
+  const [categorySuggestion, setCategorySuggestion] = useState<CategorySuggestion | null>(null)
+  const [detectingCategory, setDetectingCategory] = useState(false)
+  const detectionTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Debounced AI category detection
+  useEffect(() => {
+    // Only detect when no category is selected and both name+description are filled
+    if (
+      data.productCategory ||
+      data.productName.trim().length < 2 ||
+      data.productDescription.trim().length < 5 ||
+      useExisting
+    ) {
+      setCategorySuggestion(null)
+      return
+    }
+
+    if (detectionTimer.current) clearTimeout(detectionTimer.current)
+
+    detectionTimer.current = setTimeout(async () => {
+      setDetectingCategory(true)
+      try {
+        const res = await fetch('/api/ai/detect-category', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            productName: data.productName,
+            productDescription: data.productDescription,
+          }),
+        })
+        if (!res.ok) return
+        const result = (await res.json()) as CategorySuggestion
+        if (result.confidence === 'high' || result.confidence === 'medium') {
+          setCategorySuggestion(result)
+        }
+      } catch {
+        // silently ignore — detection is a hint, not critical
+      } finally {
+        setDetectingCategory(false)
+      }
+    }, 1200)
+
+    return () => {
+      if (detectionTimer.current) clearTimeout(detectionTimer.current)
+    }
+  }, [data.productName, data.productDescription, data.productCategory, useExisting])
+
+  function acceptCategorySuggestion() {
+    if (!categorySuggestion) return
+    update({ productCategory: categorySuggestion.category })
+    setCategorySuggestion(null)
+  }
 
   function selectExisting(product: ExistingProduct) {
     update({
       existingProductId: product.id,
       productName: product.name,
       productPrice: product.price,
-      productCurrency: product.currency ?? 'USD',
+      productCurrency: product.currency ?? DEFAULT_CURRENCY,
       productCategory: product.category ?? '',
       productDescription: product.description ?? '',
       productImages: Array.isArray(product.images) ? (product.images as string[]) : [],
@@ -80,7 +139,7 @@ export function StepProduct({ existingProducts, userId }: StepProductProps) {
                 existingProductId: null,
                 productName: '',
                 productPrice: null,
-                productCurrency: 'USD',
+                productCurrency: DEFAULT_CURRENCY,
                 productCategory: '',
                 productDescription: '',
                 productImages: [],
@@ -182,12 +241,47 @@ export function StepProduct({ existingProducts, userId }: StepProductProps) {
           <Select
             label="Categoría"
             value={data.productCategory}
-            onChange={(e) => update({ productCategory: e.target.value })}
+            onChange={(e) => { update({ productCategory: e.target.value }); setCategorySuggestion(null) }}
             options={BUSINESS_CATEGORIES}
             placeholder="Selecciona una categoría"
             error={errors.productCategory}
             required
           />
+
+          {/* AI category suggestion banner */}
+          {categorySuggestion && !data.productCategory && (
+            <div className="flex items-center gap-2 rounded-lg border border-brand/30 bg-brand/5 px-3 py-2.5">
+              <Sparkles className="size-3.5 text-brand shrink-0" />
+              <p className="text-xs text-foreground flex-1">
+                Detectamos que este producto parece pertenecer a{' '}
+                <span className="font-semibold text-brand">{categorySuggestion.label}</span>.
+                {' '}¿Deseas utilizar esa categoría?
+              </p>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <button
+                  type="button"
+                  onClick={acceptCategorySuggestion}
+                  className="rounded-md bg-brand px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-brand/90 transition-colors"
+                >
+                  Sí, usar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCategorySuggestion(null)}
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {detectingCategory && !data.productCategory && (
+            <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+              <Sparkles className="size-3 animate-pulse" />
+              Detectando categoría...
+            </p>
+          )}
 
           <Textarea
             label="Descripción del producto"
@@ -211,6 +305,7 @@ export function StepProduct({ existingProducts, userId }: StepProductProps) {
               userId={userId}
               productName={data.productName}
               productDescription={data.productDescription}
+              productCategory={data.productCategory}
               objective={data.objective}
               maxImages={5}
             />

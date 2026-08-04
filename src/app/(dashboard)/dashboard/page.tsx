@@ -2,9 +2,9 @@ import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import {
-  Megaphone, Box, Sparkles, TrendingUp, PlusCircle,
+  Megaphone, Box, Sparkles, TrendingUp,
   ArrowRight, Star, CheckCircle2, FileEdit, Activity,
-  ChevronRight,
+  ChevronRight, Wand2, Users, Type, Palette, MonitorSmartphone,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
@@ -94,6 +94,14 @@ export default async function DashboardPage() {
   const stats = Array.isArray(campaignStats) ? campaignStats[0] : null
 
   const { canCreate } = await checkCampaignLimit(supabase, user.id)
+  const isNewUser = (totalCampaigns ?? 0) === 0 && (productCount ?? 0) === 0
+
+  const AI_BENEFITS = [
+    { icon: Users,             label: 'Segmentación automática' },
+    { icon: Type,              label: 'Copy profesional' },
+    { icon: Palette,           label: 'Creativos con IA' },
+    { icon: MonitorSmartphone, label: 'Preview en Meta' },
+  ]
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
@@ -101,18 +109,84 @@ export default async function DashboardPage() {
       <AnimatedSection>
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-bold text-foreground tracking-tight">Dashboard</h1>
+            <h1 className="text-2xl font-bold text-foreground tracking-tight">Inicio</h1>
             <p className="text-sm text-muted-foreground mt-1">
               Bienvenido a AdGenius AI
             </p>
           </div>
-          <Link href="/campaigns/new">
+          <Link href="/campaign-builder">
             <Button disabled={!canCreate} className="gap-2">
-              <PlusCircle className="size-4" />
-              Nueva campaña
+              <Wand2 className="size-4" />
+              Crear campaña con IA
             </Button>
           </Link>
         </div>
+      </AnimatedSection>
+
+      {/* Hero CTA — AI campaign builder */}
+      <AnimatedSection delay={0.02}>
+        {isNewUser ? (
+          /* Onboarding welcome for new users */
+          <div className="relative rounded-2xl overflow-hidden bg-gradient-to-br from-brand via-brand to-purple-600 p-6 sm:p-8 text-white">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center gap-6">
+              <div className="flex-1 space-y-3">
+                <div className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-xs font-semibold">
+                  <Sparkles className="size-3" />
+                  Para ti — sin experiencia en publicidad
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold leading-tight">
+                  No necesitas saber publicidad digital.
+                </h2>
+                <p className="text-white/80 text-sm leading-relaxed max-w-md">
+                  Sube tu producto y la IA hará el trabajo. Estrategia, audiencia, copy y creativos en minutos.
+                </p>
+                <Link href="/campaign-builder">
+                  <Button size="lg" className="bg-white text-brand hover:bg-white/90 gap-2 mt-2 font-bold">
+                    <Wand2 className="size-4" />
+                    Comenzar
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </Link>
+              </div>
+              <div className="grid grid-cols-2 gap-2 sm:w-52 shrink-0">
+                {AI_BENEFITS.map(({ icon: Icon, label }) => (
+                  <div key={label} className="flex items-center gap-2 bg-white/15 rounded-xl px-3 py-2.5">
+                    <Icon className="size-3.5 shrink-0" />
+                    <span className="text-[11px] font-medium">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          /* Returning user — compact AI campaign CTA */
+          <div className="rounded-2xl border border-brand/20 bg-gradient-to-r from-brand/5 to-purple-500/5 p-5 flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center justify-center size-10 rounded-xl bg-brand/10 shrink-0">
+                <Wand2 className="size-5 text-brand" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-foreground">Crear campaña con IA</p>
+                <p className="text-xs text-muted-foreground">
+                  Crea campañas profesionales sin saber Facebook Ads
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 flex-wrap shrink-0">
+              {AI_BENEFITS.map(({ icon: Icon, label }) => (
+                <span key={label} className="hidden xl:inline-flex items-center gap-1 text-[10px] font-medium px-2 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">
+                  <Icon className="size-3" />{label}
+                </span>
+              ))}
+              <Link href="/campaign-builder">
+                <Button size="sm" className="gap-1.5 ml-2">
+                  <Wand2 className="size-3.5" />
+                  Crear ahora
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
       </AnimatedSection>
 
       {/* Stat cards */}
@@ -177,7 +251,7 @@ export default async function DashboardPage() {
                   icon={<Megaphone className="size-7 text-muted-foreground" />}
                   title="Sin campañas todavía"
                   description="Crea tu primera campaña publicitaria con ayuda de IA."
-                  action={{ label: 'Crear campaña', href: '/campaigns/new' }}
+                  action={{ label: 'Crear campaña con IA', href: '/campaign-builder' }}
                   className="py-10"
                 />
               ) : (
@@ -339,7 +413,7 @@ export default async function DashboardPage() {
               <div className="space-y-1">
                 {(
                   [
-                    { label: 'Nueva campaña', href: '/campaigns/new', icon: PlusCircle },
+                    { label: 'Crear campaña con IA', href: '/campaign-builder', icon: Wand2 },
                     { label: 'Ver campañas', href: '/campaigns', icon: Megaphone },
                     { label: 'Mis productos', href: '/products', icon: Box },
                     { label: 'Analíticas', href: '/analytics', icon: Activity },

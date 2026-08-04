@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import { PlusCircle } from 'lucide-react'
+import { Wand2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { Button } from '@/components/ui/button'
 import type { Database } from '@/types/database'
@@ -30,13 +30,13 @@ export default async function CampaignsPage() {
         <div>
           <h1 className="text-xl font-semibold text-foreground">Campañas</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Gestiona tus campañas de Facebook Ads
+            Historial de campañas creadas con IA
           </p>
         </div>
-        <Link href="/campaigns/new">
+        <Link href="/campaign-builder">
           <Button size="sm" className="gap-2">
-            <PlusCircle className="size-4" />
-            Nueva campaña
+            <Wand2 className="size-4" />
+            Crear campaña con IA
           </Button>
         </Link>
       </div>

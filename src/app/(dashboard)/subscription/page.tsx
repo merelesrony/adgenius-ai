@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button'
 import { Badge, StatusBadge } from '@/components/ui/badge'
 import { formatDate } from '@/lib/utils'
+import { formatCurrency } from '@/lib/currency'
 import { PLAN_CONFIGS } from '@/constants/options'
 import { cn } from '@/lib/utils'
 
@@ -74,7 +75,7 @@ export default async function SubscriptionPage() {
             {subscription.price_paid && (
               <div>
                 <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1">Precio</p>
-                <p className="text-sm font-medium">${subscription.price_paid} {subscription.currency}/mes</p>
+                <p className="text-sm font-medium">{formatCurrency(subscription.price_paid!, subscription.currency ?? 'USD')}/mes</p>
               </div>
             )}
           </CardContent>
@@ -104,7 +105,7 @@ export default async function SubscriptionPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">{plan.displayName}</CardTitle>
                   <div className="mt-1">
-                    <span className="text-3xl font-bold">${plan.price}</span>
+                    <span className="text-3xl font-bold">{formatCurrency(plan.price, 'USD')}</span>
                     <span className="text-muted-foreground text-sm">/mes</span>
                   </div>
                 </CardHeader>

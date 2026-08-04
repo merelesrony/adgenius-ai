@@ -6,10 +6,14 @@ import { Input } from '@/components/ui/input'
 import { AudienceSelector } from '../components/audience-selector'
 import { stepBudgetSchema } from '@/lib/validations/campaign'
 import { useWizard } from '../context'
+import { getBudgetTiers, getMinBudgetHint, DEFAULT_CURRENCY } from '@/lib/currency'
 
 export function StepBudget() {
   const { data, update, next, back } = useWizard()
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const currency = data.productCurrency || DEFAULT_CURRENCY
+  const budgetTiers = getBudgetTiers(currency)
+  const minBudgetHint = getMinBudgetHint(currency)
 
   function handleNext() {
     const result = stepBudgetSchema.safeParse({
@@ -45,21 +49,24 @@ export function StepBudget() {
         </h3>
 
         <Input
-          label="Presupuesto por día (USD)"
+          label={`Presupuesto por día (${currency})`}
           type="number"
           placeholder="10.00"
           value={data.dailyBudget ?? ''}
           onChange={(e) => update({ dailyBudget: e.target.value ? Number(e.target.value) : null })}
           error={errors.dailyBudget}
-          hint="Recomendado: mínimo $5/día para resultados estables."
+          hint={minBudgetHint}
           leftIcon={<DollarSign />}
           required
         />
 
         <div className="rounded-lg bg-brand/5 border border-brand/20 p-3 text-xs text-muted-foreground space-y-0.5">
-          <p>💡 <strong className="text-foreground">$5–$15/día</strong> — Prueba y validación</p>
-          <p>🚀 <strong className="text-foreground">$15–$50/día</strong> — Escala progresiva</p>
-          <p>⚡ <strong className="text-foreground">$50+/día</strong> — Máximo alcance</p>
+          {budgetTiers.map((tier) => (
+            <p key={tier.label}>
+              {tier.emoji}{' '}
+              <strong className="text-foreground">{tier.range}</strong> — {tier.label}
+            </p>
+          ))}
         </div>
       </div>
 

@@ -8,6 +8,7 @@ import { CampaignScore } from '../components/campaign-score'
 import { useWizard } from '../context'
 import type { AIGenerateResult } from '../types'
 import { cn } from '@/lib/utils'
+import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency'
 
 export function StepAI() {
   const { data, update, next, back } = useWizard()
@@ -101,7 +102,7 @@ export function StepAI() {
             </span>
             {data.dailyBudget && (
               <span className="rounded-full bg-background border border-border px-2.5 py-1">
-                💰 ${data.dailyBudget}/día
+                💰 {formatCurrency(data.dailyBudget, data.productCurrency || DEFAULT_CURRENCY)}/día
               </span>
             )}
             <span className="rounded-full bg-background border border-border px-2.5 py-1">

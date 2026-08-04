@@ -1,103 +1,111 @@
 import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
-import { PlusCircle, Box } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
-import { Button } from '@/components/ui/button'
-import { EmptyState } from '@/components/ui/empty-state'
-import { Badge } from '@/components/ui/badge'
-import {
-  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
-} from '@/components/ui/table'
-import { formatCurrency, formatDate } from '@/lib/utils'
+import { ProductsModule } from '@/features/products/products-module'
+import type { Database } from '@/types/database'
 
-export const metadata: Metadata = { title: 'Productos' }
+type ProductRow = Database['public']['Tables']['products']['Row']
+type CreativeRow = Database['public']['Tables']['campaign_creatives']['Row']
+
+interface CreativeWithJoins extends CreativeRow {
+  campaign_name?: string | null
+  product_name?: string | null
+}
+
+export const metadata: Metadata = { title: 'Product & Creative Studio — AdGenius AI' }
 
 export default async function ProductsPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
-  type ProductRow = {
-    id: string; user_id: string; name: string; description: string | null
-    price: number | null; currency: string; category: string | null
-    images: unknown; is_active: boolean; created_at: string; updated_at: string
-  }
+  // Load products
   const { data: productsRaw } = await supabase
     .from('products')
     .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-  const products = productsRaw as ProductRow[] | null
+  const products = (productsRaw ?? []) as ProductRow[]
+
+  // Load campaigns (for "use in campaign" feature + count per product)
+  const { data: campaignsRaw } = await supabase
+    .from('campaigns')
+    .select('id, name, status, product_id')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+  const campaigns = (campaignsRaw ?? []) as { id: string; name: string; status: string; product_id?: string | null }[]
+
+  // Load creatives with product and campaign joins
+  let creatives: CreativeWithJoins[] = []
+  try {
+    const { data: creativesRaw } = await supabase
+      .from('campaign_creatives')
+      .select('*, campaign:campaigns(id, name), product:products(id, name)')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(100)
+
+    if (creativesRaw) {
+      creatives = creativesRaw.map((c) => {
+        const campaignData = c.campaign as { id: string; name: string } | null
+        const productData = c.product as { id: string; name: string } | null
+        return {
+          ...c,
+          campaign: undefined,
+          product: undefined,
+          campaign_name: campaignData?.name ?? null,
+          product_name: productData?.name ?? null,
+        }
+      })
+    }
+  } catch {
+    // Graceful fallback if migration 006 hasn't run yet
+    try {
+      const { data: creativesBasic } = await supabase
+        .from('campaign_creatives')
+        .select('id, user_id, campaign_id, image_url, prompt, model, format, preset_id, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(100)
+
+      creatives = (creativesBasic ?? []).map((c) => ({
+        ...c,
+        product_id: null,
+        is_favorite: false,
+        category: null,
+        is_primary: false,
+        headline: null,
+        primary_text: null,
+        description: null,
+        cta: null,
+        variant: null,
+        variant_label: null,
+        campaign_name: null,
+        product_name: null,
+      }))
+    } catch {
+      creatives = []
+    }
+  }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+    <div className="max-w-7xl mx-auto space-y-2">
+      {/* Page header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
         <div>
           <h1 className="text-xl font-semibold text-foreground">Productos</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Administra los productos que usarás en tus campañas
+            Tus productos son el centro — cada uno puede tener campañas y creativos propios
           </p>
         </div>
-        <Button size="sm">
-          <PlusCircle className="size-4" />
-          Agregar producto
-        </Button>
       </div>
 
-      <div className="rounded-lg border border-border bg-card">
-        {!products || products.length === 0 ? (
-          <EmptyState
-            icon={<Box className="size-7 text-muted-foreground" />}
-            title="Sin productos"
-            description="Agrega tus productos o servicios para usarlos en las campañas publicitarias."
-            action={{ label: 'Agregar primer producto', href: '/products' }}
-          />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nombre</TableHead>
-                <TableHead className="hidden md:table-cell">Categoría</TableHead>
-                <TableHead className="hidden sm:table-cell">Precio</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="hidden lg:table-cell">Agregado</TableHead>
-                <TableHead />
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell>
-                    <div className="font-medium text-foreground">{p.name}</div>
-                    {p.description && (
-                      <div className="text-xs text-muted-foreground mt-0.5 line-clamp-1">
-                        {p.description}
-                      </div>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-sm text-muted-foreground">
-                    {p.category ?? '—'}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell text-sm text-muted-foreground">
-                    {p.price ? formatCurrency(p.price, p.currency) : '—'}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={p.is_active ? 'success' : 'secondary'}>
-                      {p.is_active ? 'Activo' : 'Inactivo'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-sm text-muted-foreground">
-                    {formatDate(p.created_at)}
-                  </TableCell>
-                  <TableCell>
-                    <Button variant="ghost" size="sm">Editar</Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        )}
-      </div>
+      <ProductsModule
+        products={products}
+        creatives={creatives}
+        campaigns={campaigns}
+        userId={user.id}
+      />
     </div>
   )
 }

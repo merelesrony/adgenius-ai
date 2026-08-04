@@ -208,7 +208,7 @@ export default async function CampaignDetailPage({ params }: { params: Promise<{
           <Section title="Presupuesto" icon={DollarSign}>
             <InfoRow
               label="Presupuesto/día"
-              value={campaign.daily_budget ? `$${campaign.daily_budget} ${campaign.currency}` : '—'}
+              value={campaign.daily_budget ? formatCurrency(campaign.daily_budget, campaign.currency ?? 'USD') + '/día' : '—'}
             />
             <InfoRow
               label="Inicio"

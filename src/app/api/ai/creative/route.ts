@@ -10,11 +10,13 @@ const schema = z.object({
   description: z.string().min(5),
   visualStyle: z.string().optional(), // kept for backward compat; preset fields take precedence
   format: z.enum(['square', 'landscape', 'portrait', 'story']),
-  targetAudience: z.string().min(2),
+  targetAudience: z.string().min(2).optional().default('público general hispanohablante'),
   objective: z.string().optional(),
   model: z.enum(['flux', 'flux-realism', 'flux-anime', 'flux-3d', 'turbo']).optional(),
   presetId: z.string().optional(),
   campaignId: z.string().uuid().optional(),
+  productId: z.string().uuid().optional(),
+  category: z.string().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -36,6 +38,14 @@ export async function POST(req: NextRequest) {
     // 1. Look up preset for rich advertising brief; fall back to generic brief if no preset
     const preset = d.presetId ? CREATIVE_PRESETS.find((p) => p.id === d.presetId) : null
 
+    // [DEBUG] preset resolution
+    console.log('[creative:DEBUG] presetId received:', d.presetId ?? 'none')
+    console.log('[creative:DEBUG] preset found:', preset ? `${preset.id} — "${preset.label}"` : 'NONE (using generic fallback)')
+    if (preset) {
+      console.log('[creative:DEBUG] advertisingConcept:', preset.advertisingConcept.slice(0, 80) + '...')
+      console.log('[creative:DEBUG] defaultModel:', preset.defaultModel)
+    }
+
     // 2. Claude acts as Senior Creative Director and generates optimised prompts,
     //    then builds the Pollinations URL with positive + negative prompts
     const creative = await generateCreative({
@@ -53,7 +63,13 @@ export async function POST(req: NextRequest) {
     })
 
     console.log('[creative] model:', creative.model, '| format:', creative.format)
-    console.log('[creative] Pollinations URL:', creative.pollinationsUrl.slice(0, 120))
+    // [DEBUG] full prompt audit
+    console.log('[creative:DEBUG] ─── PROMPT COMPLETO ───────────────────────────────')
+    console.log('[creative:DEBUG] Longitud:', creative.prompt.length, 'chars |', creative.prompt.split(/\s+/).length, 'palabras')
+    console.log('[creative:DEBUG] PROMPT:', creative.prompt)
+    console.log('[creative:DEBUG] NEGATIVE:', creative.negativePrompt.slice(0, 200))
+    console.log('[creative:DEBUG] URL completa:', creative.pollinationsUrl)
+    console.log('[creative:DEBUG] ───────────────────────────────────────────────────')
 
     // 2. Download the rendered image from Pollinations (can take 20–40 s)
     const controller = new AbortController()
@@ -104,6 +120,8 @@ export async function POST(req: NextRequest) {
       model: creative.model,
       format: creative.format,
       preset_id: d.presetId ?? null,
+      product_id: d.productId ?? null,
+      category: d.category ?? null,
     })
     if (dbError) {
       console.warn('[creative] campaign_creatives insert skipped:', dbError.message)
@@ -128,5 +146,25 @@ export async function POST(req: NextRequest) {
     console.error('[creative]', err)
     const message = err instanceof Error ? err.message : 'Error inesperado'
     return NextResponse.json({ error: message }, { status: 500 })
+  }
+}
+
+export async function GET() {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+
+    const { data } = await supabase
+      .from('campaign_creatives')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(40)
+
+    return NextResponse.json({ creatives: data ?? [] })
+  } catch (err) {
+    console.error('[creative GET]', err)
+    return NextResponse.json({ creatives: [] })
   }
 }

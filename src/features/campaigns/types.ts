@@ -1,4 +1,5 @@
 import type { AudienceResult, ScoreResult, CopyResult, AIGenerateResult } from '@/lib/ai/AIManager'
+import { DEFAULT_CURRENCY } from '@/lib/currency'
 
 export type { AudienceResult, ScoreResult, CopyResult, AIGenerateResult }
 
@@ -64,7 +65,7 @@ export const INITIAL_WIZARD_DATA: WizardData = {
   existingProductId: null,
   productName: '',
   productPrice: null,
-  productCurrency: 'USD',
+  productCurrency: DEFAULT_CURRENCY,
   productCategory: '',
   productDescription: '',
   productImages: [],

@@ -1,5 +1,6 @@
 'use client'
 
+import * as React from 'react'
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import {
@@ -13,6 +14,7 @@ import { CampaignScore } from '../components/campaign-score'
 import { saveCampaignAction } from '../actions'
 import { useWizard } from '../context'
 import { CAMPAIGN_OBJECTIVES, COUNTRIES } from '@/constants/options'
+import { formatCurrency, DEFAULT_CURRENCY } from '@/lib/currency'
 
 function SectionRow({ label, value, icon: Icon }: { label: string; value: string; icon: React.ElementType }) {
   return (
@@ -32,6 +34,13 @@ function AdPreview({ headline, body, description, cta, productName, images }: {
   headline: string; body: string; description: string; cta: string;
   productName: string; images: string[]
 }) {
+  const [imgError, setImgError] = React.useState(false)
+  const imageUrl = images.length > 0 ? images[0] : null
+  const showImage = !!imageUrl && !imgError
+
+  // Reset error state when the image URL changes
+  React.useEffect(() => { setImgError(false) }, [imageUrl])
+
   return (
     <div className="rounded-xl border border-border bg-white dark:bg-card overflow-hidden shadow-sm max-w-sm mx-auto">
       {/* Facebook-style ad header */}
@@ -50,14 +59,24 @@ function AdPreview({ headline, body, description, cta, productName, images }: {
         <p className="text-xs text-foreground leading-relaxed">{body || 'Tu copy aparecerá aquí...'}</p>
       </div>
 
-      {/* Image placeholder */}
-      {images.length > 0 ? (
+      {/* Image */}
+      {showImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
-          src={images[0]}
+          src={imageUrl}
           alt="Imagen del anuncio"
           className="w-full aspect-video object-cover"
+          onError={() => setImgError(true)}
+          loading="eager"
+          crossOrigin="anonymous"
         />
+      ) : imageUrl && imgError ? (
+        <div className="w-full aspect-video bg-muted/60 flex flex-col items-center justify-center gap-1 px-3">
+          <Package className="size-8 text-muted-foreground/40" />
+          <p className="text-[10px] text-muted-foreground text-center">
+            No se pudo cargar la imagen
+          </p>
+        </div>
       ) : (
         <div className="w-full aspect-video bg-gradient-to-br from-brand/10 to-brand/20 flex items-center justify-center">
           <Package className="size-10 text-brand/30" />
@@ -191,8 +210,10 @@ export function StepPreview() {
             icon={MapPin}
           />
           <SectionRow
-            label="Presupuesto"
-            value={data.dailyBudget ? `$${data.dailyBudget} USD/día` : '—'}
+            label="Presupuesto/día"
+            value={data.dailyBudget
+              ? formatCurrency(data.dailyBudget, data.productCurrency || DEFAULT_CURRENCY) + '/día'
+              : '—'}
             icon={DollarSign}
           />
           <SectionRow

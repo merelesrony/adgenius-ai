@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Upload, Sparkles, Check, RefreshCw, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import {
   CREATIVE_PRESETS,
   CREATIVE_MODELS,
   FORMAT_DIMENSIONS,
+  CATEGORY_TO_PRESET,
 } from '@/constants/options'
 import type { CreativePreset, CreativeModel, CreativeFormat } from '@/constants/options'
 
@@ -20,6 +21,7 @@ interface CreativeSelectorProps {
   userId: string
   productName?: string
   productDescription?: string
+  productCategory?: string
   targetAudience?: string
   objective?: string
   maxImages?: number
@@ -44,6 +46,7 @@ export function CreativeSelector({
   userId,
   productName = '',
   productDescription = '',
+  productCategory = '',
   targetAudience = '',
   objective = 'sales',
   maxImages = 5,
@@ -52,6 +55,20 @@ export function CreativeSelector({
   const [preset, setPreset] = useState<CreativePreset>(CREATIVE_PRESETS[0])
   const [format, setFormat] = useState<CreativeFormat>('square')
   const [model, setModel] = useState<CreativeModel>(CREATIVE_PRESETS[0].defaultModel)
+
+  // Auto-select preset based on product category
+  useEffect(() => {
+    if (!productCategory) return
+    const presetId = CATEGORY_TO_PRESET[productCategory]
+    if (!presetId) return
+    const found = CREATIVE_PRESETS.find((p) => p.id === presetId)
+    if (found && found.id !== preset.id) {
+      setPreset(found)
+      setModel(found.defaultModel)
+    }
+  // Only run when category changes, not on every preset change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [productCategory])
   const [generating, setGenerating] = useState(false)
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [generatedPrompt, setGeneratedPrompt] = useState('')
@@ -158,7 +175,7 @@ export function CreativeSelector({
           {/* Preset grid */}
           <div>
             <p className="text-xs font-medium text-foreground mb-2">Estilo visual</p>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 max-h-64 overflow-y-auto pr-1">
               {CREATIVE_PRESETS.map((p) => (
                 <button
                   key={p.id}

@@ -20,6 +20,7 @@ import {
   PieChart,
   HelpCircle,
   Facebook,
+  Wand2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { Profile } from '@/types'
@@ -32,15 +33,16 @@ interface SidebarProps {
 }
 
 const mainNav = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/campaigns', label: 'Campañas', icon: Megaphone },
+  { href: '/dashboard', label: 'Inicio', icon: LayoutDashboard },
+  { href: '/campaign-builder', label: 'Crear campaña IA', icon: Wand2 },
   { href: '/products', label: 'Productos', icon: Box },
+  { href: '/campaigns', label: 'Campañas', icon: Megaphone },
+  { href: '/analytics', label: 'Resultados', icon: PieChart },
 ]
 
 const toolsNav = [
   { href: '/ai', label: 'IA Generativa', icon: Zap },
   { href: '/facebook-ads', label: 'Facebook Ads', icon: Facebook },
-  { href: '/analytics', label: 'Analíticas', icon: PieChart },
 ]
 
 const adminNav = [
@@ -49,9 +51,9 @@ const adminNav = [
 ]
 
 const bottomNav = [
+  { href: '/settings', label: 'Configuración', icon: Settings },
   { href: '/subscription', label: 'Suscripción', icon: CreditCard },
   { href: '/profile', label: 'Perfil', icon: User },
-  { href: '/settings', label: 'Configuración', icon: Settings },
   { href: '/help', label: 'Ayuda', icon: HelpCircle },
 ]
 
@@ -135,7 +137,7 @@ export function Sidebar({ profile, open, onClose }: SidebarProps) {
             </div>
           </div>
 
-          {/* Herramientas */}
+          {/* Herramientas avanzadas */}
           <div>
             <p className="px-3 mb-1.5 text-[10px] font-semibold tracking-widest uppercase text-muted-foreground">
               Herramientas

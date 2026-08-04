@@ -4,12 +4,13 @@ import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Save, ArrowLeft, Sparkles } from 'lucide-react'
+import { Save, ArrowLeft, Sparkles, Image as ImageIcon, X, ExternalLink } from 'lucide-react'
 import type { Database } from '@/types/database'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { TagsInput } from '@/components/ui/tags-input'
 import { Button } from '@/components/ui/button'
 import { COUNTRIES, CAMPAIGN_OBJECTIVES, GENDER_OPTIONS } from '@/constants/options'
+import { ImageUpload } from './image-upload'
 import { updateCampaignAction } from '../actions'
 
 type CampaignRow = Database['public']['Tables']['campaigns']['Row']
@@ -62,6 +63,9 @@ export function EditCampaignForm({ campaign }: EditCampaignFormProps) {
     (campaign.target_languages as string[] | null) ?? ['es'],
   )
 
+  // Creative
+  const [flyerImages, setFlyerImages] = useState<string[]>(campaign.flyer_url ? [campaign.flyer_url] : [])
+
   // AI Copy
   const [headline, setHeadline] = useState(rawAiCopy?.headline ?? '')
   const [body, setBody] = useState(rawAiCopy?.body ?? '')
@@ -71,6 +75,7 @@ export function EditCampaignForm({ campaign }: EditCampaignFormProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     startTransition(async () => {
+      const newFlyerUrl = flyerImages.length > 0 ? flyerImages[0] : null
       const result = await updateCampaignAction(campaign.id, {
         name,
         objective: objective as 'awareness' | 'traffic' | 'engagement' | 'leads' | 'sales',
@@ -89,12 +94,13 @@ export function EditCampaignForm({ campaign }: EditCampaignFormProps) {
         ai_copy: campaign.ai_generated
           ? { headline, body, description, cta }
           : null,
+        flyer_url: newFlyerUrl,
       })
       if (result.success) {
         toast.success('Campaña actualizada')
         router.push('/campaigns')
-      } else {
-        toast.error(result.error ?? 'Error al guardar los cambios')
+      } else if (!result.success) {
+        toast.error(result.error)
       }
     })
   }
@@ -178,7 +184,7 @@ export function EditCampaignForm({ campaign }: EditCampaignFormProps) {
       <div className="rounded-xl border border-border bg-card p-5 space-y-4">
         <h2 className="text-sm font-semibold text-foreground">Presupuesto</h2>
         <Input
-          label="Presupuesto diario (USD)"
+          label={`Presupuesto diario (${campaign.currency ?? 'USD'})`}
           type="number"
           value={dailyBudget}
           onChange={(e) => setDailyBudget(e.target.value)}
@@ -250,6 +256,59 @@ export function EditCampaignForm({ campaign }: EditCampaignFormProps) {
           hint="Códigos de idioma: es, en, pt, fr, it, de"
           maxTags={6}
         />
+      </div>
+
+      {/* Creativo / Imagen */}
+      <div className="rounded-xl border border-border bg-card p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            <ImageIcon className="size-4 text-muted-foreground" />
+            Creativo / Imagen
+          </h2>
+          <Link
+            href="/products?tab=studio"
+            className="text-xs text-brand hover:underline flex items-center gap-1"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Generar con IA en Creative Studio
+            <ExternalLink className="size-3" />
+          </Link>
+        </div>
+
+        {flyerImages.length > 0 && (
+          <div className="relative rounded-xl overflow-hidden border border-border bg-muted/30 aspect-video max-h-52">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={flyerImages[0]}
+              alt="Creativo actual"
+              className="w-full h-full object-contain"
+            />
+            <button
+              type="button"
+              onClick={() => setFlyerImages([])}
+              className="absolute top-2 right-2 p-1 rounded-full bg-black/60 text-white hover:bg-destructive transition-colors"
+              title="Quitar imagen"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
+
+        <ImageUpload
+          images={flyerImages}
+          onChange={setFlyerImages}
+          userId={campaign.user_id}
+          maxImages={1}
+        />
+
+        <p className="text-xs text-muted-foreground">
+          Sube una imagen o genera una con IA desde el{' '}
+          <Link href="/products?tab=studio" className="text-brand hover:underline" target="_blank">
+            Creative Studio
+          </Link>{' '}
+          y luego asígnala a esta campaña desde la Biblioteca de Creativos.
+        </p>
       </div>
 
       {/* Copy IA */}
