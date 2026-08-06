@@ -18,7 +18,7 @@ interface CreativeVariantsProps {
   selectedId: string | null
   onSelect: (id: string) => void
   onEdit: (id: string, patch: Partial<Pick<GeneratedCreative, 'headline' | 'primaryText' | 'description' | 'cta'>>) => void
-  onRegenerate: (id: string) => void
+  onRegenerate: (id: string) => Promise<void>
   onPreview: (creative: GeneratedCreative) => void
 }
 
@@ -54,8 +54,7 @@ export function CreativeVariants({
     try {
       await onRegenerate(id)
     } finally {
-      // Give Pollinations a moment, then clear indicator
-      setTimeout(() => setRegeneratingId(null), 1500)
+      setRegeneratingId(null)
     }
   }
 
@@ -87,7 +86,7 @@ export function CreativeVariants({
             {/* Image */}
             <div className="p-2">
               <div className="relative">
-                <CreativeImage src={creative.imageUrl} alt={creative.headline} />
+                <CreativeImage key={creative.imageUrl} src={creative.imageUrl} alt={creative.headline} />
                 {regeneratingId === creative.id && (
                   <div className="absolute inset-0 bg-background/60 backdrop-blur-sm flex items-center justify-center rounded-lg">
                     <RefreshCw className="size-5 text-brand animate-spin" />

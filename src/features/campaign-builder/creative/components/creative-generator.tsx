@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCampaignBuilder } from '../../context'
 import { aiAbortRegistry } from '../../ai-abort-registry'
-import { buildAdImageUrl, randomSeed } from '../creative-engine'
+// Image generation is handled server-side via /api/ai/generate-image
 import { CreativeVariants } from './creative-variants'
 import { BrandKitCard } from './brand-kit-card'
 import { AdPreview } from './ad-preview'
@@ -99,12 +99,12 @@ export function CreativeGenerator() {
       if (!res.ok) throw new Error((raw as { error?: string }).error ?? 'Error generando creativos')
       const data: AdCreativeResult = raw as AdCreativeResult
 
-      // Build Pollinations URLs client-side
+      // Create creatives immediately with empty imageUrl (server will fill them async)
       const creatives: GeneratedCreative[] = data.creatives.map((c) => ({
         id: c.variant,
         variant: c.variant,
         variantLabel: c.variantLabel,
-        imageUrl: buildAdImageUrl(c.imagePrompt, randomSeed()),
+        imageUrl: '',
         imagePrompt: c.imagePrompt,
         headline: c.headline,
         primaryText: c.primaryText,
@@ -124,6 +124,25 @@ export function CreativeGenerator() {
         setPreviewCreative(creatives[0])
         setPhase('done')
       }, 600)]
+
+      // Generate images server-side in parallel (OpenAI → Pollinations fallback)
+      void Promise.all(
+        data.creatives.map(async (c) => {
+          try {
+            const imgRes = await fetch('/api/ai/generate-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt: c.imagePrompt }),
+            })
+            const imgData = await imgRes.json() as { imageUrl?: string }
+            if (imgData.imageUrl) {
+              dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id: c.variant, imageUrl: imgData.imageUrl } })
+            }
+          } catch (err) {
+            console.error('[generate-image] variant', c.variant, err)
+          }
+        }),
+      )
     } catch (err) {
       clearTimers()
       if (err instanceof Error && err.name === 'AbortError') {
@@ -150,13 +169,27 @@ export function CreativeGenerator() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  function handleRegenerate(id: string) {
+  async function handleRegenerate(id: string): Promise<void> {
     const creative = generatedCreatives.find(c => c.id === id)
     if (!creative) return
-    const newUrl = buildAdImageUrl(creative.imagePrompt, randomSeed())
-    dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id, imageUrl: newUrl } })
-    if (previewCreative?.id === id) {
-      setPreviewCreative({ ...previewCreative, imageUrl: newUrl })
+    // Clear to trigger loading state in the card
+    dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id, imageUrl: '' } })
+    try {
+      const res = await fetch('/api/ai/generate-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt: creative.imagePrompt }),
+      })
+      const data = await res.json() as { imageUrl?: string; error?: string }
+      if (!res.ok) throw new Error(data.error ?? 'Error generando imagen')
+      if (data.imageUrl) {
+        dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id, imageUrl: data.imageUrl } })
+        if (previewCreative?.id === id) {
+          setPreviewCreative(prev => prev ? { ...prev, imageUrl: data.imageUrl! } : prev)
+        }
+      }
+    } catch (err) {
+      console.error('[regenerate-image]', err)
     }
   }
 

@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Camera, ImagePlus, Package, Sparkles, CheckCircle, ChevronRight,
   Loader2, AlertCircle, Tag, Users, ArrowLeft, Edit2, Check, X,
-  Fingerprint, SlidersHorizontal, RefreshCw,
+  Fingerprint, RefreshCw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatCurrency } from '@/lib/currency'
@@ -321,13 +321,11 @@ function ProductConfirmForm({
 
 function ImageIngestionFlow({
   userId,
-  onBack,
   onProductAccepted,
   imageUseMode,
   onImageUseModeChange,
 }: {
   userId: string
-  onBack: () => void
   onProductAccepted: (product: SelectedProduct) => void
   imageUseMode: ImageUseMode
   onImageUseModeChange: (mode: ImageUseMode) => void
@@ -1294,7 +1292,6 @@ export function Step1Product({ products, userId }: Step1ProductProps) {
               </button>
               <ImageIngestionFlow
                 userId={userId}
-                onBack={() => setProductMode(null)}
                 onProductAccepted={handleProductAccepted}
                 imageUseMode={imageUseMode}
                 onImageUseModeChange={(mode) => dispatch({ type: 'SET_IMAGE_USE_MODE', payload: mode })}

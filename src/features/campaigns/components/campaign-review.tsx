@@ -25,7 +25,7 @@ import {
   saveOptimizedCreativeAction,
 } from '@/features/campaigns/actions'
 import { CAMPAIGN_OBJECTIVES, COUNTRIES } from '@/constants/options'
-import { buildAdImageUrl, randomSeed } from '@/features/campaign-builder/creative/creative-engine'
+// Image generation is handled server-side via /api/ai/generate-image
 import type { Database } from '@/types/database'
 import type { AdCreativeAIResult, CampaignOptimizationResult } from '@/lib/ai/AIManager'
 
@@ -511,7 +511,7 @@ function CreativeOptimizerPanel({ campaign }: CreativeOptimizerProps) {
   const [generatedVariants, setGeneratedVariants] = useState<Array<{
     headline: string; primaryText: string; description: string; cta: string
     imagePrompt: string; variant: string; variantLabel: string; style: string; concept: string
-    imageUrl: string; seed: number
+    imageUrl: string
   }> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [savingVariant, setSavingVariant] = useState<string | null>(null)
@@ -552,15 +552,28 @@ function CreativeOptimizerPanel({ campaign }: CreativeOptimizerProps) {
       const data = await res.json() as AdCreativeAIResult
       if (!res.ok) throw new Error((data as unknown as { error?: string }).error ?? 'Error')
 
-      const variants = data.creatives.map((c) => {
-        const seed = randomSeed()
-        return {
-          ...c,
-          imageUrl: buildAdImageUrl(c.imagePrompt, seed),
-          seed,
-        }
-      })
+      // Set variants immediately with empty imageUrl (images load async)
+      const variants = data.creatives.map((c) => ({ ...c, imageUrl: '' }))
       setGeneratedVariants(variants)
+
+      // Generate images server-side in parallel (OpenAI → Pollinations fallback)
+      void Promise.all(
+        data.creatives.map(async (c, i) => {
+          try {
+            const imgRes = await fetch('/api/ai/generate-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ prompt: c.imagePrompt }),
+            })
+            const imgData = await imgRes.json() as { imageUrl?: string }
+            if (imgData.imageUrl) {
+              setGeneratedVariants(prev =>
+                prev ? prev.map((v, j) => j === i ? { ...v, imageUrl: imgData.imageUrl! } : v) : prev,
+              )
+            }
+          } catch { /* fail silently — image stays empty */ }
+        }),
+      )
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Error generando creativos'
       setError(msg)
