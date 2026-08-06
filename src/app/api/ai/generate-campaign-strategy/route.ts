@@ -26,8 +26,16 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const parsed = schema.safeParse(body)
     if (!parsed.success) {
+      const flat = parsed.error.flatten()
+      console.error('[Strategy 400]', {
+        reason: 'Zod validation failed',
+        fieldErrors: flat.fieldErrors,
+        formErrors: flat.formErrors,
+        receivedFields: Object.keys(body as object),
+        body,
+      })
       return NextResponse.json(
-        { error: 'Datos inválidos', details: parsed.error.flatten() },
+        { error: 'Datos inválidos', details: flat },
         { status: 400 },
       )
     }

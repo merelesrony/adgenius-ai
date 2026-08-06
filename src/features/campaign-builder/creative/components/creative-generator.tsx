@@ -65,9 +65,10 @@ export function CreativeGenerator() {
     )
 
     try {
-      const productFinal = (state.productMode === 'existing' || state.productMode === 'ai') && selectedProduct
-        ? selectedProduct
-        : null
+      const productFinal =
+        (state.productMode === 'existing' || state.productMode === 'ai' || state.productMode === 'image') && selectedProduct
+          ? selectedProduct
+          : null
 
       const res = await fetch('/api/ai/generate-ad-creative', {
         method: 'POST',

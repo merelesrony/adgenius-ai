@@ -36,10 +36,12 @@ export function Step8Final() {
   const daily = parseFloat(dailyBudget) || 0
   const total = parseFloat(totalBudget) || 0
 
-  const displayName =
-    (productMode === 'existing' || productMode === 'ai') && selectedProduct
-      ? selectedProduct.name
-      : productName || '—'
+  const usesSelectedProduct =
+    productMode === 'existing' || productMode === 'ai' || productMode === 'image'
+
+  const displayName = usesSelectedProduct && selectedProduct
+    ? selectedProduct.name
+    : productName || '—'
 
   const missingFields: string[] = []
   if (!productName && !selectedProduct) missingFields.push('producto')
@@ -121,12 +123,16 @@ export function Step8Final() {
           </div>
           <div className="p-4 flex gap-4">
             <div className="size-20 rounded-lg overflow-hidden bg-muted shrink-0 border border-border/40">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={selectedCreative.imageUrl}
-                alt={selectedCreative.headline}
-                className="size-full object-cover"
-              />
+              {selectedCreative.imageUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={selectedCreative.imageUrl}
+                  alt={selectedCreative.headline}
+                  className="size-full object-cover"
+                />
+              ) : (
+                <div className="size-full bg-gradient-to-br from-muted to-muted/60 animate-pulse" />
+              )}
             </div>
             <div className="flex-1 min-w-0 space-y-1.5">
               <p className="text-sm font-bold text-foreground leading-tight">{selectedCreative.headline}</p>

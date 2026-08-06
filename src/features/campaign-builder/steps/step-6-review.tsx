@@ -189,12 +189,14 @@ export function Step6Review() {
   const total = parseFloat(totalBudget) || 0
   const selectedCountry = COUNTRIES.find((c) => c.value === country)
 
-  const displayProductName =
-    productMode === 'existing' || productMode === 'ai'
-      ? selectedProduct?.name ?? '—'
-      : productName || '—'
+  const usesSelectedProduct =
+    productMode === 'existing' || productMode === 'ai' || productMode === 'image'
 
-  const displayProduct = (productMode === 'existing' || productMode === 'ai') ? selectedProduct : null
+  const displayProductName = usesSelectedProduct
+    ? (selectedProduct?.name ?? '—')
+    : productName || '—'
+
+  const displayProduct = usesSelectedProduct ? selectedProduct : null
 
   const inputCls = 'w-full rounded-lg border border-border bg-background text-foreground text-sm px-3 py-2 placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring'
   const labelCls = 'text-[10px] uppercase tracking-widest text-muted-foreground mb-1 block font-semibold'

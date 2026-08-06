@@ -54,12 +54,14 @@ function CreativeCard({
           className="relative aspect-square bg-muted/40 overflow-hidden cursor-pointer"
           onClick={() => setEnlarged(true)}
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={creative.image_url}
-            alt="Creativo IA"
-            className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-          />
+          {creative.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={creative.image_url}
+              alt="Creativo IA"
+              className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+            />
+          )}
 
           {/* IA badge */}
           <div className="absolute top-2 left-2 flex items-center gap-1 rounded-full bg-brand text-white px-2 py-0.5 text-[10px] font-semibold">
@@ -160,12 +162,14 @@ function CreativeCard({
       {/* Enlarged preview modal */}
       <Modal open={enlarged} onClose={() => setEnlarged(false)} size="xl" title={creative.product_name ?? 'Creativo'}>
         <div className="space-y-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={creative.image_url}
-            alt="Creativo IA"
-            className="w-full max-h-[500px] object-contain rounded-lg border border-border bg-muted/30"
-          />
+          {creative.image_url && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={creative.image_url}
+              alt="Creativo IA"
+              className="w-full max-h-[500px] object-contain rounded-lg border border-border bg-muted/30"
+            />
+          )}
           {creative.prompt && (
             <div className="rounded-lg bg-muted/30 border border-border/50 p-3">
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-1 font-medium">Prompt</p>

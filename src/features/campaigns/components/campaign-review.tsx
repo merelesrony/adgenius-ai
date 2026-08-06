@@ -656,13 +656,17 @@ function CreativeOptimizerPanel({ campaign }: CreativeOptimizerProps) {
                 {generatedVariants.map((v) => (
                   <div key={v.variant} className="rounded-xl border border-border bg-card overflow-hidden">
                     <div className="aspect-video overflow-hidden bg-muted/30">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={v.imageUrl}
-                        alt={v.variantLabel}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
+                      {v.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={v.imageUrl}
+                          alt={v.variantLabel}
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-muted to-muted/60 animate-pulse" />
+                      )}
                     </div>
                     <div className="p-3 space-y-1.5">
                       <div className="flex items-center gap-2 justify-between">
@@ -975,9 +979,9 @@ export function CampaignReview({ campaign, creativeUrl, creatives = [], optimiza
                 <div className={cn('grid gap-2', otherCreatives.length === 1 ? 'grid-cols-1' : 'grid-cols-2')}>
                   {otherCreatives.map((c) => (
                     <div key={c.id} className="rounded-lg overflow-hidden border border-border bg-muted/20">
-                      <div className="aspect-video overflow-hidden">
+                      <div className="aspect-video overflow-hidden bg-muted/20">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={c.image_url} alt={c.variant_label ?? 'Variante'} className="w-full h-full object-cover" />
+                        {c.image_url && <img src={c.image_url} alt={c.variant_label ?? 'Variante'} className="w-full h-full object-cover" />}
                       </div>
                       {c.variant_label && <p className="text-[10px] text-muted-foreground px-2 pb-1.5 pt-1">{c.variant_label}</p>}
                     </div>

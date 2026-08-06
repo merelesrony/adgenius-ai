@@ -24,21 +24,26 @@ interface CreativeVariantsProps {
 
 function CreativeImage({ src, alt }: { src: string; alt: string }) {
   const [loaded, setLoaded] = useState(false)
+  const hasUrl = !!src
   return (
     <div className="relative w-full aspect-square bg-muted rounded-lg overflow-hidden">
-      {!loaded && (
+      {/* Placeholder shown while loading or when no URL yet */}
+      {(!hasUrl || !loaded) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gradient-to-br from-muted to-muted/60">
           <Sparkles className="size-6 text-muted-foreground/40 animate-pulse" />
           <p className="text-[10px] text-muted-foreground/60">Generando imagen...</p>
         </div>
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        className={cn('w-full h-full object-cover transition-opacity duration-700', loaded ? 'opacity-100' : 'opacity-0')}
-        onLoad={() => setLoaded(true)}
-      />
+      {/* Never render <img> with empty src */}
+      {hasUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          className={cn('w-full h-full object-cover transition-opacity duration-700', loaded ? 'opacity-100' : 'opacity-0')}
+          onLoad={() => setLoaded(true)}
+        />
+      )}
     </div>
   )
 }

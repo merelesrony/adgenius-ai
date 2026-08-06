@@ -61,40 +61,49 @@ export function Step5Working() {
         dailyBudget, currency, country, city, radius, platforms,
       } = state
 
-      const productNameFinal =
-        productMode === 'existing' || productMode === 'ai'
-          ? selectedProduct?.name ?? productName
-          : productName
+      // 'existing', 'ai', and 'image' all store their data in selectedProduct
+      const usesSelectedProduct =
+        productMode === 'existing' || productMode === 'ai' || productMode === 'image'
+
+      const resolvedName = usesSelectedProduct
+        ? (selectedProduct?.name ?? productName)
+        : productName
+
+      const payload = {
+        productName: resolvedName,
+        productDescription: usesSelectedProduct
+          ? (selectedProduct?.description ?? productDescription)
+          : productDescription,
+        productCategory: usesSelectedProduct
+          ? (selectedProduct?.category ?? null)
+          : null,
+        productPrice: usesSelectedProduct
+          ? (selectedProduct?.price ?? null)
+          : null,
+        productCurrency: usesSelectedProduct
+          ? (selectedProduct?.currency ?? currency)
+          : currency,
+        dailyBudget: parseFloat(dailyBudget) || 10,
+        budgetCurrency: currency,
+        country,
+        city,
+        radius: parseInt(radius, 10) || 20,
+        platforms,
+      }
+
+      console.log('[step-5] strategy payload', {
+        productMode,
+        productName: payload.productName,
+        hasSelectedProduct: !!selectedProduct,
+        country: payload.country,
+        dailyBudget: payload.dailyBudget,
+      })
 
       const res = await fetch('/api/ai/generate-campaign-strategy', {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productName: productNameFinal,
-          productDescription:
-            productMode === 'existing' || productMode === 'ai'
-              ? selectedProduct?.description ?? productDescription
-              : productDescription,
-          productCategory:
-            productMode === 'existing' || productMode === 'ai'
-              ? selectedProduct?.category ?? null
-              : null,
-          productPrice:
-            productMode === 'existing' || productMode === 'ai'
-              ? selectedProduct?.price ?? null
-              : null,
-          productCurrency:
-            productMode === 'existing' || productMode === 'ai'
-              ? selectedProduct?.currency ?? currency
-              : currency,
-          dailyBudget: parseFloat(dailyBudget) || 10,
-          budgetCurrency: currency,
-          country,
-          city,
-          radius: parseInt(radius, 10) || 20,
-          platforms,
-        }),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()

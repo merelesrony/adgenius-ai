@@ -21,18 +21,22 @@ interface AdPreviewProps {
 
 function ImagePlaceholder({ src, alt, className }: { src: string; alt: string; className?: string }) {
   const [loaded, setLoaded] = useState(false)
+  const hasUrl = !!src
   return (
     <div className={cn('relative bg-muted overflow-hidden', className)}>
-      {!loaded && (
+      {(!hasUrl || !loaded) && (
         <div className="absolute inset-0 bg-gradient-to-br from-muted to-muted/60 animate-pulse" />
       )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt={alt}
-        className={cn('w-full h-full object-cover transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
-        onLoad={() => setLoaded(true)}
-      />
+      {/* Never render <img> with empty src */}
+      {hasUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={src}
+          alt={alt}
+          className={cn('w-full h-full object-cover transition-opacity duration-500', loaded ? 'opacity-100' : 'opacity-0')}
+          onLoad={() => setLoaded(true)}
+        />
+      )}
     </div>
   )
 }
