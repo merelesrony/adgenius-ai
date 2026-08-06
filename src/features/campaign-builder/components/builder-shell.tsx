@@ -1,13 +1,15 @@
 'use client'
 
 import { useState } from 'react'
-import { Package } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Package, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CampaignBuilderProvider, useCampaignBuilder } from '../context'
 import { BuilderProgress } from './builder-progress'
 import { BuilderNav } from './builder-nav'
 import { BuilderDraftsWidget } from './builder-drafts-widget'
 import { ResumeBuilderModal } from './resume-builder-modal'
+import { CancelCreationModal } from './cancel-creation-modal'
 import { Step1Product } from '../steps/step-1-product'
 import { Step2Budget } from '../steps/step-2-budget'
 import { Step3Destination } from '../steps/step-3-destination'
@@ -17,7 +19,9 @@ import { Step6Review } from '../steps/step-6-review'
 import { Step7Creative } from '../steps/step-7-creative'
 import { Step8Final } from '../steps/step-8-final'
 import { useBuilderAutosave } from '../hooks/use-builder-autosave'
-import { closeBuilderSessionAction } from '../actions'
+import { useUnloadGuard } from '../hooks/use-unload-guard'
+import { closeBuilderSessionAction, resumeSessionAction } from '../actions'
+import { OfflineBanner } from './offline-banner'
 import { formatCurrency } from '@/lib/currency'
 import type { Database } from '@/types/database'
 import type { BuilderSession } from '../types'
@@ -27,6 +31,7 @@ type ProductRow = Database['public']['Tables']['products']['Row']
 interface BuilderShellProps {
   products: ProductRow[]
   initialSession?: BuilderSession | null
+  userId: string
 }
 
 function ModeToggle() {
@@ -67,7 +72,7 @@ function ProductContextBar() {
   if (step < 2) return null
 
   const name =
-    (productMode === 'existing' || productMode === 'ai') && selectedProduct
+    (productMode === 'existing' || productMode === 'ai' || productMode === 'image') && selectedProduct
       ? selectedProduct.name
       : productMode === 'manual' && productName
       ? productName
@@ -105,16 +110,26 @@ function ProductContextBar() {
   )
 }
 
-function BuilderContent({ products, initialSession }: BuilderShellProps) {
+function BuilderContent({ products, initialSession, userId }: BuilderShellProps) {
   const { state, dispatch } = useCampaignBuilder()
+  const router = useRouter()
   const [showModal, setShowModal] = useState(!!initialSession)
+  const [showCancelModal, setShowCancelModal] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Wire autosave — returns live error state
   const { saveError } = useBuilderAutosave()
 
+  // Abort AI + mark session as paused when user closes/navigates away
+  useUnloadGuard({ sessionId: state.sessionId })
+
   function handleResume() {
     if (initialSession) {
       dispatch({ type: 'LOAD_SESSION', payload: initialSession })
+      // Flip paused → draft so subsequent autosave doesn't re-show the modal
+      if (initialSession.status === 'paused') {
+        void resumeSessionAction(initialSession.id)
+      }
     }
     setShowModal(false)
   }
@@ -127,8 +142,39 @@ function BuilderContent({ products, initialSession }: BuilderShellProps) {
     setShowModal(false)
   }
 
+  // Cancel modal handlers
+  function handleSaveAndExit() {
+    // Autosave already persisted the session as 'draft' — just navigate away
+    setShowCancelModal(false)
+    router.push('/campaigns')
+  }
+
+  async function handleResetCampaign() {
+    // Mark current session abandoned, then reset state for a fresh start
+    if (state.sessionId) {
+      await closeBuilderSessionAction(state.sessionId, 'abandoned')
+    }
+    dispatch({ type: 'RESET' })
+    setShowCancelModal(false)
+  }
+
+  async function handleDeleteDraft() {
+    setIsDeleting(true)
+    try {
+      if (state.sessionId) {
+        await closeBuilderSessionAction(state.sessionId, 'abandoned')
+      }
+      dispatch({ type: 'RESET' })
+      setShowCancelModal(false)
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <>
+      <OfflineBanner />
+
       {showModal && initialSession && (
         <ResumeBuilderModal
           session={initialSession}
@@ -137,13 +183,22 @@ function BuilderContent({ products, initialSession }: BuilderShellProps) {
         />
       )}
 
+      <CancelCreationModal
+        open={showCancelModal}
+        onClose={() => setShowCancelModal(false)}
+        onSaveAndExit={handleSaveAndExit}
+        onReset={() => { void handleResetCampaign() }}
+        onDelete={handleDeleteDraft}
+        isLoading={isDeleting}
+      />
+
       <div className="space-y-6">
         <BuilderProgress />
         <ProductContextBar />
 
         <div className="max-w-2xl mx-auto w-full px-4 sm:px-0">
           {state.step === 1 && <ModeToggle />}
-          {state.step === 1 && <Step1Product products={products} />}
+          {state.step === 1 && <Step1Product products={products} userId={userId} />}
           {state.step === 2 && <Step2Budget />}
           {state.step === 3 && <Step3Destination />}
           {state.step === 4 && <Step4Goal />}
@@ -155,6 +210,20 @@ function BuilderContent({ products, initialSession }: BuilderShellProps) {
 
         <BuilderNav />
 
+        {/* Persistent cancel button — visible on steps 1–7 */}
+        {state.step < 8 && (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={() => setShowCancelModal(true)}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-3 rounded-full hover:bg-muted/60"
+            >
+              <X className="size-3" />
+              Cancelar campaña
+            </button>
+          </div>
+        )}
+
         {/* Autosave status */}
         <div className="flex justify-center pb-2">
           <BuilderDraftsWidget error={saveError} />
@@ -164,10 +233,10 @@ function BuilderContent({ products, initialSession }: BuilderShellProps) {
   )
 }
 
-export function BuilderShell({ products, initialSession }: BuilderShellProps) {
+export function BuilderShell({ products, initialSession, userId }: BuilderShellProps) {
   return (
     <CampaignBuilderProvider>
-      <BuilderContent products={products} initialSession={initialSession} />
+      <BuilderContent products={products} initialSession={initialSession} userId={userId} />
     </CampaignBuilderProvider>
   )
 }

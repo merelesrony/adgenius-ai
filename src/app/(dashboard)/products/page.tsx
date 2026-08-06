@@ -82,6 +82,11 @@ export default async function ProductsPage() {
         variant_label: null,
         campaign_name: null,
         product_name: null,
+        creative_brief: null,
+        creative_score: null,
+        platform_format: null,
+        variant_type: null,
+        generation_model: null,
       }))
     } catch {
       creatives = []

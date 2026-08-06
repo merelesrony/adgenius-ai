@@ -16,12 +16,17 @@ export interface GeneratedCreative {
   createdAt: string
 }
 
+import type { VisualProductDNA } from '@/types/visual-dna'
+
+export type { VisualProductDNA }
+
 export interface BrandKit {
   colors: string[]
   visualStyle: string
   toneOfVoice: string
   photographyStyle: string
   recommendedTypography: string
+  visualDNA?: VisualProductDNA | null
 }
 
 // Shape returned by generateAdCreative() / API route

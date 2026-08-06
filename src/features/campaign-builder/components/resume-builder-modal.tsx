@@ -1,6 +1,6 @@
 'use client'
 
-import { Package, Clock, ArrowRight, Plus, Wand2 } from 'lucide-react'
+import { Package, Clock, ArrowRight, Plus, Wand2, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/currency'
 import type { BuilderSession } from '../types'
@@ -37,26 +37,35 @@ interface ResumeBuilderModalProps {
 export function ResumeBuilderModal({ session, onResume, onNew }: ResumeBuilderModalProps) {
   const product = session.selected_product
   const budget = session.budget
+  const isPaused = session.status === 'paused'
 
   return (
     /* Full-screen overlay */
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
       <div className="w-full max-w-sm rounded-2xl border border-border bg-card shadow-xl overflow-hidden">
         {/* Header */}
-        <div className="px-5 pt-5 pb-4 border-b border-border bg-gradient-to-br from-brand/5 to-purple-500/5">
+        <div className={`px-5 pt-5 pb-4 border-b border-border bg-gradient-to-br ${isPaused ? 'from-amber-500/5 to-orange-500/5' : 'from-brand/5 to-purple-500/5'}`}>
           <div className="flex items-center gap-3 mb-3">
-            <div className="flex items-center justify-center size-10 rounded-xl bg-gradient-to-br from-brand to-purple-600 shrink-0">
-              <Wand2 className="size-5 text-white" />
+            <div className={`flex items-center justify-center size-10 rounded-xl shrink-0 ${isPaused ? 'bg-amber-500/10' : 'bg-gradient-to-br from-brand to-purple-600'}`}>
+              {isPaused
+                ? <AlertCircle className="size-5 text-amber-600 dark:text-amber-400" />
+                : <Wand2 className="size-5 text-white" />
+              }
             </div>
             <div>
-              <p className="text-xs font-semibold text-brand uppercase tracking-wider">Smart Builder</p>
+              <p className={`text-xs font-semibold uppercase tracking-wider ${isPaused ? 'text-amber-600 dark:text-amber-400' : 'text-brand'}`}>
+                {isPaused ? 'Sesión interrumpida' : 'Smart Builder'}
+              </p>
               <h2 className="text-base font-bold text-foreground leading-tight">
-                Campaña pendiente
+                {isPaused ? 'Campaña en pausa' : 'Campaña pendiente'}
               </h2>
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            Encontramos una campaña que dejaste sin terminar. ¿Quieres continuar donde lo dejaste?
+            {isPaused
+              ? 'Encontramos una sesión que quedó interrumpida. Tu progreso está guardado — continúa donde lo dejaste.'
+              : 'Encontramos una campaña que dejaste sin terminar. ¿Quieres continuar donde lo dejaste?'
+            }
           </p>
         </div>
 

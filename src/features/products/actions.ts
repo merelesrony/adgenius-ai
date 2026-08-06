@@ -4,6 +4,8 @@ import { z } from 'zod'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
 import type { ActionResult } from '@/types'
+import type { VisualProductDNA } from '@/types/visual-dna'
+import type { Json } from '@/types/database'
 
 const productSchema = z.object({
   name: z.string().min(1, 'El nombre es requerido').max(150),
@@ -128,6 +130,38 @@ export async function deleteProductAction(id: string): Promise<ActionResult<void
     return { success: true, data: undefined }
   } catch (err) {
     console.error('[deleteProductAction]', err)
+    return { success: false, error: 'Error inesperado' }
+  }
+}
+
+export async function saveProductVisualDNAAction(
+  productId: string,
+  dna: VisualProductDNA,
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { error } = await supabase
+      .from('products')
+      .update({
+        visual_dna: dna as unknown as Json,
+        master_visual_prompt: dna.masterPrompt,
+        analyzed_at: dna.analyzedAt,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', productId)
+      .eq('user_id', user.id)
+
+    if (error) {
+      console.error('[saveProductVisualDNAAction]', error)
+      return { success: false, error: 'Error guardando ADN visual' }
+    }
+
+    return { success: true, data: undefined }
+  } catch (err) {
+    console.error('[saveProductVisualDNAAction]', err)
     return { success: false, error: 'Error inesperado' }
   }
 }

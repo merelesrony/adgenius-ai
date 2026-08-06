@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Palette, Sparkles, AlertCircle, RefreshCw, Eye, EyeOff } from 'lucide-react'
+import { Palette, Sparkles, AlertCircle, RefreshCw, Eye, EyeOff, XCircle, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCampaignBuilder } from '../../context'
+import { aiAbortRegistry } from '../../ai-abort-registry'
 import { buildAdImageUrl, randomSeed } from '../creative-engine'
 import { CreativeVariants } from './creative-variants'
 import { BrandKitCard } from './brand-kit-card'
@@ -19,7 +20,7 @@ const GEN_STEPS = [
   'Definiendo identidad de marca...',
 ] as const
 
-type Phase = 'generating' | 'done' | 'error'
+type Phase = 'generating' | 'done' | 'error' | 'cancelled'
 
 export function CreativeGenerator() {
   const { state, dispatch } = useCampaignBuilder()
@@ -35,16 +36,29 @@ export function CreativeGenerator() {
   const [showPreview, setShowPreview] = useState(false)
   const hasStarted = useRef(hasCached) // skip generation if cache exists
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
+  const abortRef = useRef<AbortController | null>(null)
 
   function clearTimers() {
     timersRef.current.forEach(clearTimeout)
     timersRef.current = []
   }
 
+  function handleCancel() {
+    clearTimers()
+    abortRef.current?.abort()
+    setPhase('cancelled')
+  }
+
   async function generate() {
     setPhase('generating')
     setGenStep(0)
     setErrorMsg(null)
+
+    abortRef.current?.abort()
+    if (abortRef.current) aiAbortRegistry.unregister(abortRef.current)
+    const controller = new AbortController()
+    abortRef.current = controller
+    aiAbortRegistry.register(controller)
 
     timersRef.current = GEN_STEPS.slice(1).map((_, i) =>
       setTimeout(() => setGenStep(i + 1), (i + 1) * 1200),
@@ -57,6 +71,7 @@ export function CreativeGenerator() {
 
       const res = await fetch('/api/ai/generate-ad-creative', {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           productName: productFinal?.name ?? productName,
@@ -111,10 +126,21 @@ export function CreativeGenerator() {
       }, 600)]
     } catch (err) {
       clearTimers()
+      if (err instanceof Error && err.name === 'AbortError') {
+        setPhase('cancelled')
+        return
+      }
       setErrorMsg(err instanceof Error ? err.message : 'Error generando creativos')
       setPhase('error')
     }
   }
+
+  // Unregister controller on unmount
+  useEffect(() => {
+    return () => {
+      if (abortRef.current) aiAbortRegistry.unregister(abortRef.current)
+    }
+  }, [])
 
   useEffect(() => {
     if (hasStarted.current) return
@@ -150,6 +176,41 @@ export function CreativeGenerator() {
 
   // ── Rendering ──────────────────────────────────────────────────────────────
 
+  if (phase === 'cancelled') {
+    return (
+      <div className="space-y-8">
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center justify-center size-16 rounded-2xl mx-auto bg-muted/60">
+            <XCircle className="size-8 text-muted-foreground/60" />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-foreground">Generación cancelada</h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Puedes generar nuevamente o volver a la revisión de estrategia.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-3">
+          <Button
+            className="gap-2 px-8"
+            onClick={() => { hasStarted.current = false; generate() }}
+          >
+            <RefreshCw className="size-4" />
+            Generar creativos nuevamente
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => dispatch({ type: 'GO_TO_STEP', payload: 6 as import('../../types').BuilderStep })}
+            className="text-muted-foreground gap-1.5"
+          >
+            Volver a la revisión
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
   if (phase === 'generating') {
     const pct = Math.round(((genStep + 1) / GEN_STEPS.length) * 100)
     return (
@@ -162,6 +223,14 @@ export function CreativeGenerator() {
             <h2 className="text-xl font-semibold text-foreground">Creative Engine</h2>
             <p className="text-sm text-muted-foreground mt-1">Creando 3 variantes de anuncios profesionales...</p>
           </div>
+          <button
+            type="button"
+            onClick={handleCancel}
+            className="flex items-center gap-1.5 mx-auto text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-3 rounded-full hover:bg-muted/60"
+          >
+            <X className="size-3" />
+            Cancelar
+          </button>
         </div>
 
         <div className="rounded-xl border border-border bg-card p-5 space-y-3">

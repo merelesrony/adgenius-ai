@@ -8,6 +8,8 @@ import type {
   BuilderSessionBudget, BuilderSessionDestination,
   GeneratedCreative, BrandKit,
 } from './types'
+import type { VisualProductDNA } from '@/types/visual-dna'
+import type { Json } from '@/types/database'
 
 // ── Product creation ──────────────────────────────────────────────────────────
 
@@ -17,11 +19,17 @@ export async function createProductFromBuilderAction(data: {
   category: string
   price: number | null
   currency: string
+  images?: string[]
+  visualDNA?: VisualProductDNA | null
 }): Promise<{ success: boolean; product?: SelectedProduct; error?: string }> {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return { success: false, error: 'No autorizado' }
+
+    const imagesJson = data.images && data.images.length > 0
+      ? JSON.parse(JSON.stringify(data.images))
+      : null
 
     const { data: product, error } = await supabase
       .from('products')
@@ -33,7 +41,10 @@ export async function createProductFromBuilderAction(data: {
         price: data.price,
         currency: data.currency,
         is_active: true,
-        images: null,
+        images: imagesJson,
+        visual_dna: data.visualDNA ? (data.visualDNA as unknown as Json) : null,
+        master_visual_prompt: data.visualDNA?.masterPrompt ?? null,
+        analyzed_at: data.visualDNA?.analyzedAt ?? null,
       })
       .select()
       .single()
@@ -41,6 +52,8 @@ export async function createProductFromBuilderAction(data: {
     if (error || !product) {
       return { success: false, error: error?.message ?? 'Error creando producto' }
     }
+
+    const firstImage = data.images?.[0] ?? null
 
     return {
       success: true,
@@ -51,7 +64,7 @@ export async function createProductFromBuilderAction(data: {
         category: product.category,
         price: product.price,
         currency: product.currency,
-        image: null,
+        image: firstImage,
       },
     }
   } catch (err) {
@@ -163,9 +176,31 @@ export async function upsertBuilderSessionAction(
   }
 }
 
+export async function resumeSessionAction(
+  sessionId: string,
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase: AnyClient = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autorizado' }
+
+    const { error } = await supabase
+      .from('campaign_builder_sessions')
+      .update({ status: 'draft' })
+      .eq('id', sessionId)
+      .eq('user_id', user.id)
+      .eq('status', 'paused') // only flip paused sessions back to draft
+
+    if (error) return { success: false, error: error.message }
+    return { success: true }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error inesperado' }
+  }
+}
+
 export async function closeBuilderSessionAction(
   sessionId: string,
-  status: 'completed' | 'abandoned' = 'abandoned',
+  status: 'completed' | 'abandoned' | 'paused' = 'abandoned',
 ): Promise<{ success: boolean; error?: string }> {
   try {
     const supabase: AnyClient = await createClient()
@@ -203,7 +238,7 @@ export async function saveDraftAction(): Promise<{
 
 export interface CampaignAssemblyInput {
   sessionId: string | null
-  productMode: 'existing' | 'ai' | 'manual' | null
+  productMode: 'existing' | 'ai' | 'manual' | 'image' | null
   selectedProduct: SelectedProduct | null
   productName: string
   productDescription: string
@@ -265,7 +300,7 @@ export async function createCampaignFromBuilderAction(
       ?? input.generatedCreatives[0]
 
     const productName =
-      (input.productMode === 'existing' || input.productMode === 'ai') && input.selectedProduct
+      (input.productMode === 'existing' || input.productMode === 'ai' || input.productMode === 'image') && input.selectedProduct
         ? input.selectedProduct.name
         : input.productName || 'Producto'
 
@@ -391,7 +426,7 @@ export async function getLatestDraftSessionAction(): Promise<{
       .from('campaign_builder_sessions')
       .select('*')
       .eq('user_id', user.id)
-      .eq('status', 'draft')
+      .in('status', ['draft', 'paused'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle()

@@ -1,8 +1,9 @@
 'use client'
 
-import { Cloud, Loader2, CheckCircle, AlertTriangle } from 'lucide-react'
+import { Cloud, Loader2, CheckCircle, AlertTriangle, WifiOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useCampaignBuilder } from '../context'
+import { useOnlineStatus } from '../hooks/use-online-status'
 
 function formatLastSaved(isoString: string): string {
   const diff = Date.now() - new Date(isoString).getTime()
@@ -21,6 +22,17 @@ interface BuilderDraftsWidgetProps {
 export function BuilderDraftsWidget({ error }: BuilderDraftsWidgetProps) {
   const { state } = useCampaignBuilder()
   const { isSaving, lastSaved, sessionId } = state
+  const { isOnline } = useOnlineStatus()
+
+  // Offline takes priority — autosave can't run anyway
+  if (!isOnline) {
+    return (
+      <div className="inline-flex items-center gap-1.5 text-[11px] font-medium rounded-full px-2.5 py-1 border border-amber-500/30 bg-amber-500/5 text-amber-700 dark:text-amber-400">
+        <WifiOff className="size-3 shrink-0" />
+        <span>Sin conexión</span>
+      </div>
+    )
+  }
 
   // Show error state regardless of sessionId
   if (error) {

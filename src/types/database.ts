@@ -77,6 +77,11 @@ export type Database = {
           cta: string | null
           variant: string | null
           variant_label: string | null
+          creative_brief: Json | null
+          creative_score: Json | null
+          platform_format: string | null
+          variant_type: string | null
+          generation_model: string | null
         }
         Insert: {
           id?: string
@@ -98,6 +103,11 @@ export type Database = {
           cta?: string | null
           variant?: string | null
           variant_label?: string | null
+          creative_brief?: Json | null
+          creative_score?: Json | null
+          platform_format?: string | null
+          variant_type?: string | null
+          generation_model?: string | null
         }
         Update: {
           id?: string
@@ -119,6 +129,11 @@ export type Database = {
           cta?: string | null
           variant?: string | null
           variant_label?: string | null
+          creative_brief?: Json | null
+          creative_score?: Json | null
+          platform_format?: string | null
+          variant_type?: string | null
+          generation_model?: string | null
         }
         Relationships: [
           {
@@ -669,6 +684,7 @@ export type Database = {
       }
       products: {
         Row: {
+          analyzed_at: string | null
           category: string | null
           created_at: string
           currency: string | null
@@ -676,12 +692,15 @@ export type Database = {
           id: string
           images: Json | null
           is_active: boolean
+          master_visual_prompt: string | null
           name: string
           price: number | null
           updated_at: string
           user_id: string
+          visual_dna: Json | null
         }
         Insert: {
+          analyzed_at?: string | null
           category?: string | null
           created_at?: string
           currency?: string | null
@@ -689,12 +708,15 @@ export type Database = {
           id?: string
           images?: Json | null
           is_active?: boolean
+          master_visual_prompt?: string | null
           name: string
           price?: number | null
           updated_at?: string
           user_id: string
+          visual_dna?: Json | null
         }
         Update: {
+          analyzed_at?: string | null
           category?: string | null
           created_at?: string
           currency?: string | null
@@ -702,10 +724,12 @@ export type Database = {
           id?: string
           images?: Json | null
           is_active?: boolean
+          master_visual_prompt?: string | null
           name?: string
           price?: number | null
           updated_at?: string
           user_id?: string
+          visual_dna?: Json | null
         }
         Relationships: [
           {

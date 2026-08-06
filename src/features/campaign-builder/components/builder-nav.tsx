@@ -10,10 +10,11 @@ function canGoNext(state: BuilderState): boolean {
   switch (state.step) {
     case 1: {
       if (!state.productMode) return false
-      // all three modes unblock once selectedProduct is set (AI sets it after DB insert)
-      if (state.productMode === 'existing' || state.productMode === 'ai') {
-        return !!state.selectedProduct
-      }
+      if (
+        state.productMode === 'existing' ||
+        state.productMode === 'ai' ||
+        state.productMode === 'image'
+      ) return !!state.selectedProduct
       if (state.productMode === 'manual') return !!state.productName.trim()
       return false
     }

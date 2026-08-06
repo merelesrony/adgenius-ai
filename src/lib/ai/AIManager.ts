@@ -72,11 +72,12 @@ async function callClaude(
     messages: [{ role: 'user', content: prompt }],
   })
 
-  console.log('[Claude]', {
+  console.log('[Claude DEBUG]', {
     model,
     stop_reason: message.stop_reason,
     input_tokens: message.usage.input_tokens,
     output_tokens: message.usage.output_tokens,
+    content_blocks: message.content.map((b) => b.type),
   })
 
   if (message.stop_reason === 'max_tokens') {
@@ -86,10 +87,10 @@ async function callClaude(
     )
   }
 
-  const block = message.content[0]
+  const block = message.content.find((b) => b.type === 'text')
   if (!block || block.type !== 'text' || !block.text.trim()) {
     throw new Error(
-      `Claude devolvió contenido vacío (stop_reason: ${message.stop_reason}, blocks: ${message.content.length})`,
+      `Claude devolvió contenido vacío (stop_reason: ${message.stop_reason}, blocks: ${message.content.length}, types: ${message.content.map((b) => b.type).join(',')})`,
     )
   }
 

@@ -27,7 +27,7 @@ export default async function CampaignBuilderPage() {
       .from('campaign_builder_sessions')
       .select('*')
       .eq('user_id', user?.id ?? '')
-      .eq('status', 'draft')
+      .in('status', ['draft', 'paused'])
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -56,7 +56,7 @@ export default async function CampaignBuilderPage() {
 
       {/* Builder content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <BuilderShell products={products ?? []} initialSession={initialSession} />
+        <BuilderShell products={products ?? []} initialSession={initialSession} userId={user?.id ?? ''} />
       </div>
     </div>
   )

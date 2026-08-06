@@ -19,6 +19,7 @@ const initialState: BuilderState = {
   productName: '',
   productDescription: '',
   productCategory: '',
+  imageUseMode: null,
   // Step 2
   dailyBudget: '',
   currency: 'USD',
@@ -48,7 +49,9 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
     case 'GO_TO_STEP':
       return { ...state, step: action.payload }
     case 'SET_PRODUCT_MODE':
-      return { ...state, productMode: action.payload, selectedProduct: null }
+      return { ...state, productMode: action.payload, selectedProduct: null, imageUseMode: null }
+    case 'SET_IMAGE_USE_MODE':
+      return { ...state, imageUseMode: action.payload }
     case 'SET_SELECTED_PRODUCT':
       return { ...state, selectedProduct: action.payload as SelectedProduct }
     case 'SET_PRODUCT_NAME':
