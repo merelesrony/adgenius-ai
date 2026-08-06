@@ -11,6 +11,7 @@ const VARIANT_COLORS: Record<string, string> = {
   premium:   'border-amber-400/40 bg-amber-50/30 dark:bg-amber-900/10',
   lifestyle: 'border-blue-400/40 bg-blue-50/30 dark:bg-blue-900/10',
   minimal:   'border-muted',
+  original:  'border-brand/40 bg-brand/3',
 }
 
 interface CreativeVariantsProps {
@@ -80,11 +81,22 @@ export function CreativeVariants({
           >
             {/* Variant badge + selected indicator */}
             <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {creative.variantLabel}
-              </span>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
+                  {creative.variantLabel}
+                </span>
+                {creative.imageSource === 'original' ? (
+                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-brand/10 text-brand border border-brand/20">
+                    ORIGINAL
+                  </span>
+                ) : creative.imageSource === 'ai' ? (
+                  <span className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-500 border border-purple-400/20">
+                    IA
+                  </span>
+                ) : null}
+              </div>
               {isSelected && (
-                <CheckCircle className="size-3.5 text-brand" />
+                <CheckCircle className="size-3.5 text-brand shrink-0" />
               )}
             </div>
 
@@ -147,14 +159,16 @@ export function CreativeVariants({
                   >
                     <Pencil className="size-3" /> Editar
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-[10px] gap-1 h-7"
-                    onClick={() => handleRegenerate(creative.id)}
-                  >
-                    <RefreshCw className="size-3" /> Reimagen
-                  </Button>
+                  {creative.imageSource !== 'original' && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="text-[10px] gap-1 h-7"
+                      onClick={() => handleRegenerate(creative.id)}
+                    >
+                      <RefreshCw className="size-3" /> Reimagen
+                    </Button>
+                  )}
                 </div>
                 <Button
                   variant="ghost"

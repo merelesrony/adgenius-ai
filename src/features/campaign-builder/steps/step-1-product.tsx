@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button'
 import { useCampaignBuilder } from '../context'
 import { createProductFromBuilderAction } from '../actions'
 import { createClient } from '@/lib/supabase/client'
-import type { ProductMode, SelectedProduct, ImageUseMode } from '../types'
+import type { ProductMode, SelectedProduct, ProductImageMode } from '../types'
 import type { Database } from '@/types/database'
 import type { ProductFromDescriptionResult } from '@/lib/ai/AIManager'
 import type { VisualProductDNA } from '@/types/visual-dna'
@@ -62,73 +62,75 @@ function ConfidenceBadge({ confidence }: { confidence: 'high' | 'medium' | 'low'
   )
 }
 
-// ── Image Use Mode Selector ───────────────────────────────────────────────────
+// ── Product Image Mode Selector ───────────────────────────────────────────────
 
 function ImageUseSelector({
   value,
   onChange,
 }: {
-  value: ImageUseMode
-  onChange: (v: ImageUseMode) => void
+  value: ProductImageMode
+  onChange: (v: ProductImageMode) => void
 }) {
-  const options: { value: ImageUseMode; label: string; description: string; soon?: boolean }[] = [
+  const options: {
+    value: ProductImageMode
+    emoji: string
+    label: string
+    description: string
+    result: string
+    accent: string
+    accentSelected: string
+  }[] = [
     {
-      value: 'generate',
-      label: 'Crear imágenes nuevas con IA',
-      description: 'La IA genera variantes únicas conservando exactamente tu producto',
+      value: 'image_ai_variants',
+      emoji: '✨',
+      label: 'Mejorar con IA',
+      description: 'Crear versiones profesionales basadas en tu producto',
+      result: '4 creativos: tu imagen + 3 variantes IA',
+      accent: 'border-border bg-card hover:border-purple-400/40 hover:bg-purple-500/3',
+      accentSelected: 'border-purple-500/60 bg-purple-500/5',
     },
     {
-      value: 'original',
-      label: 'Usar exactamente esta imagen',
-      description: 'Todos los anuncios usarán tu fotografía original sin cambios',
-    },
-    {
-      value: 'improve',
-      label: 'Mejorarla con IA',
-      description: 'Mejorar calidad, iluminación y limpieza de fondo',
-      soon: true,
+      value: 'original_only',
+      emoji: '📸',
+      label: 'Usar mi imagen',
+      description: 'Tu imagen exacta. La IA genera copy, estrategia y segmentación',
+      result: '1 creativo: tu imagen + copy IA',
+      accent: 'border-border bg-card hover:border-brand/40 hover:bg-brand/3',
+      accentSelected: 'border-brand/60 bg-brand/5',
     },
   ]
 
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold text-foreground">¿Cómo deseas usar tu imagen en los anuncios?</p>
+      <p className="text-xs font-semibold text-foreground">¿Cómo quieres crear tu anuncio?</p>
       <div className="space-y-2">
         {options.map((opt) => (
           <button
             key={opt.value}
             type="button"
-            disabled={opt.soon}
             onClick={() => onChange(opt.value)}
             className={cn(
-              'w-full flex items-center gap-3 rounded-xl border-2 p-3 text-left transition-all',
-              !opt.soon && value === opt.value
-                ? 'border-brand bg-brand/5'
-                : !opt.soon
-                ? 'border-border bg-card hover:border-brand/30'
-                : 'border-border bg-muted/20 opacity-50 cursor-not-allowed',
+              'w-full flex items-start gap-3 rounded-xl border-2 p-3.5 text-left transition-all duration-200',
+              value === opt.value ? opt.accentSelected : opt.accent,
             )}
           >
-            <div className={cn(
-              'size-4 rounded-full border-2 shrink-0 flex items-center justify-center',
-              !opt.soon && value === opt.value
-                ? 'border-brand bg-brand'
-                : 'border-muted-foreground/40 bg-transparent',
-            )}>
-              {!opt.soon && value === opt.value && (
-                <div className="size-1.5 rounded-full bg-white" />
-              )}
-            </div>
+            <div className="text-xl shrink-0 leading-none mt-0.5">{opt.emoji}</div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-sm font-medium text-foreground leading-snug">{opt.label}</span>
-                {opt.soon && (
-                  <span className="text-[10px] bg-muted text-muted-foreground rounded-full px-2 py-0.5 shrink-0">
-                    Próximamente
-                  </span>
+                <span className="text-sm font-semibold text-foreground leading-snug">{opt.label}</span>
+                {value === opt.value && (
+                  <CheckCircle className="size-3.5 text-brand shrink-0" />
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{opt.description}</p>
+              <p className={cn(
+                'text-[11px] font-medium mt-1.5 px-2 py-0.5 rounded-full inline-block',
+                value === opt.value
+                  ? 'bg-brand/10 text-brand'
+                  : 'bg-muted text-muted-foreground',
+              )}>
+                → {opt.result}
+              </p>
             </div>
           </button>
         ))}
@@ -142,16 +144,16 @@ function ImageUseSelector({
 function ProductConfirmForm({
   product: initial,
   imageUrl,
-  imageUseMode,
-  onImageUseModeChange,
+  productImageMode,
+  onProductImageModeChange,
   onConfirm,
   onBack,
   saveError,
 }: {
   product: ProductFromImageResult
   imageUrl: string
-  imageUseMode: ImageUseMode
-  onImageUseModeChange: (mode: ImageUseMode) => void
+  productImageMode: ProductImageMode
+  onProductImageModeChange: (mode: ProductImageMode) => void
   onConfirm: (edited: ProductFromImageResult) => void
   onBack: () => void
   saveError: string | null
@@ -286,7 +288,7 @@ function ProductConfirmForm({
 
       {/* Image use selector */}
       <div className="rounded-xl border border-border bg-muted/20 p-4">
-        <ImageUseSelector value={imageUseMode} onChange={onImageUseModeChange} />
+        <ImageUseSelector value={productImageMode} onChange={onProductImageModeChange} />
       </div>
 
       {/* Save error */}
@@ -322,13 +324,13 @@ function ProductConfirmForm({
 function ImageIngestionFlow({
   userId,
   onProductAccepted,
-  imageUseMode,
-  onImageUseModeChange,
+  productImageMode,
+  onProductImageModeChange,
 }: {
   userId: string
   onProductAccepted: (product: SelectedProduct) => void
-  imageUseMode: ImageUseMode
-  onImageUseModeChange: (mode: ImageUseMode) => void
+  productImageMode: ProductImageMode
+  onProductImageModeChange: (mode: ProductImageMode) => void
 }) {
   const [phase, setPhase] = useState<ImageIngestionPhase>('upload')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
@@ -662,8 +664,8 @@ function ImageIngestionFlow({
     <ProductConfirmForm
       product={productData}
       imageUrl={imageUrl}
-      imageUseMode={imageUseMode}
-      onImageUseModeChange={onImageUseModeChange}
+      productImageMode={productImageMode}
+      onProductImageModeChange={onProductImageModeChange}
       onConfirm={handleConfirm}
       onBack={() => { setPhase('upload'); setProductData(null); setVisualDNA(null); setSaveError(null) }}
       saveError={saveError}
@@ -1228,7 +1230,7 @@ export function Step1Product({ products, userId }: Step1ProductProps) {
   const { productMode, selectedProduct } = state
   const activeProducts = products.filter((p) => p.is_active)
 
-  const imageUseMode: ImageUseMode = state.imageUseMode ?? 'generate'
+  const productImageMode: ProductImageMode = state.productImageMode ?? 'image_ai_variants'
 
   function setProductMode(mode: ProductMode | null) {
     dispatch({ type: 'SET_PRODUCT_MODE', payload: mode })
@@ -1293,8 +1295,8 @@ export function Step1Product({ products, userId }: Step1ProductProps) {
               <ImageIngestionFlow
                 userId={userId}
                 onProductAccepted={handleProductAccepted}
-                imageUseMode={imageUseMode}
-                onImageUseModeChange={(mode) => dispatch({ type: 'SET_IMAGE_USE_MODE', payload: mode })}
+                productImageMode={productImageMode}
+                onProductImageModeChange={(mode) => dispatch({ type: 'SET_PRODUCT_IMAGE_MODE', payload: mode })}
               />
             </div>
           )}

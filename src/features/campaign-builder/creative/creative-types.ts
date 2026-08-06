@@ -1,11 +1,11 @@
-export type CreativeVariant = 'premium' | 'lifestyle' | 'minimal'
+export type CreativeVariant = 'premium' | 'lifestyle' | 'minimal' | 'original'
 
 export interface GeneratedCreative {
-  id: string              // 'premium' | 'lifestyle' | 'minimal'
+  id: string
   variant: CreativeVariant
-  variantLabel: string    // 'Premium / Luxury'
-  imageUrl: string        // Pollinations URL
-  imagePrompt: string     // Stored so we can regenerate with new seed
+  variantLabel: string
+  imageUrl: string
+  imagePrompt: string
   headline: string
   primaryText: string
   description: string
@@ -14,6 +14,7 @@ export interface GeneratedCreative {
   concept: string
   format: string
   createdAt: string
+  imageSource?: 'original' | 'ai'
 }
 
 import type { VisualProductDNA } from '@/types/visual-dna'

@@ -11,6 +11,7 @@ import { CreativeVariants } from './creative-variants'
 import { BrandKitCard } from './brand-kit-card'
 import { AdPreview } from './ad-preview'
 import type { GeneratedCreative, AdCreativeResult } from '../creative-types'
+import type { ProductImageMode } from '../../types'
 
 const GEN_STEPS = [
   'Analizando producto y audiencia...',
@@ -20,11 +21,19 @@ const GEN_STEPS = [
   'Definiendo identidad de marca...',
 ] as const
 
+function shouldGenerateAiImages(productImageMode: ProductImageMode | null): boolean {
+  return productImageMode !== 'original_only'
+}
+
 type Phase = 'generating' | 'done' | 'error' | 'cancelled'
 
 export function CreativeGenerator() {
   const { state, dispatch } = useCampaignBuilder()
-  const { aiStrategy, selectedProduct, productName, productDescription, dailyBudget, currency, platforms, generatedCreatives, brandKit } = state
+  const {
+    aiStrategy, selectedProduct, productName, productDescription,
+    dailyBudget, currency, platforms, generatedCreatives, brandKit,
+    productImageMode,
+  } = state
 
   const hasCached = generatedCreatives.length > 0
   const [phase, setPhase] = useState<Phase>(hasCached ? 'done' : 'generating')
@@ -70,37 +79,169 @@ export function CreativeGenerator() {
           ? selectedProduct
           : null
 
+      const originalImageUrl = productFinal?.image ?? null
+      const isOriginalOnly = productImageMode === 'original_only'
+      const isAiVariants = productImageMode === 'image_ai_variants' && !!originalImageUrl
+      const generateImages = shouldGenerateAiImages(productImageMode)
+
+      // ── Shared copy-generation payload ────────────────────────────────────────
+      const copyPayload = {
+        productName: productFinal?.name ?? productName,
+        productDescription: productFinal?.description ?? productDescription,
+        productCategory: productFinal?.category ?? null,
+        productPrice: productFinal?.price ?? null,
+        productCurrency: productFinal?.currency ?? currency,
+        ageMin: aiStrategy?.audience.ageMin ?? 18,
+        ageMax: aiStrategy?.audience.ageMax ?? 65,
+        gender: aiStrategy?.audience.gender ?? 'all',
+        interests: aiStrategy?.audience.interests ?? [],
+        objective: aiStrategy?.objective ?? 'sales',
+        objectiveLabel: aiStrategy?.objectiveLabel ?? 'Ventas',
+        recommendedCTA: aiStrategy?.recommendedCTA ?? 'Comprar ahora',
+        dailyBudget: parseFloat(dailyBudget) || 10,
+        budgetCurrency: currency,
+        creativeStyle: aiStrategy?.creativeDirection.style ?? 'Profesional',
+        creativeConcept: aiStrategy?.creativeDirection.concept ?? 'Producto como protagonista',
+        platforms,
+      }
+
+      // ── BRANCH A: original_only ────────────────────────────────────────────────
+      // Use the uploaded image as-is; generate copy but skip all image API calls
+      if (isOriginalOnly) {
+        const res = await fetch('/api/ai/generate-ad-creative', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(copyPayload),
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw: any = await res.json()
+        if (!res.ok) throw new Error((raw as { error?: string }).error ?? 'Error generando copy')
+        const data = raw as AdCreativeResult
+
+        const firstCopy = data.creatives[0]
+        const singleCreative: GeneratedCreative = {
+          id: 'original',
+          variant: 'original',
+          variantLabel: 'Tu imagen original',
+          imageUrl: originalImageUrl ?? '',
+          imagePrompt: '',
+          headline: firstCopy.headline,
+          primaryText: firstCopy.primaryText,
+          description: firstCopy.description,
+          cta: firstCopy.cta,
+          style: firstCopy.style,
+          concept: firstCopy.concept,
+          format: 'square',
+          createdAt: new Date().toISOString(),
+          imageSource: 'original',
+        }
+
+        clearTimers()
+        setGenStep(GEN_STEPS.length - 1)
+        dispatch({ type: 'SET_GENERATED_CREATIVES', payload: [singleCreative] })
+        dispatch({ type: 'SET_BRAND_KIT', payload: data.brandKit })
+        dispatch({ type: 'SET_SELECTED_CREATIVE', payload: 'original' })
+        timersRef.current = [setTimeout(() => {
+          setPreviewCreative(singleCreative)
+          setPhase('done')
+        }, 600)]
+        return
+      }
+
+      // ── BRANCH B: image_ai_variants ────────────────────────────────────────────
+      // Keep original image as card 0; generate 3 AI variants with images
+      if (isAiVariants) {
+        const originalCreative: GeneratedCreative = {
+          id: 'original',
+          variant: 'original',
+          variantLabel: 'Tu imagen original',
+          imageUrl: originalImageUrl!,
+          imagePrompt: '',
+          headline: aiStrategy?.headline ?? productFinal?.name ?? productName,
+          primaryText: aiStrategy?.primaryText ?? productFinal?.description ?? productDescription ?? '',
+          description: aiStrategy?.description ?? '',
+          cta: aiStrategy?.recommendedCTA ?? 'Comprar ahora',
+          style: 'Original',
+          concept: 'Fotografía real del producto',
+          format: 'square',
+          createdAt: new Date().toISOString(),
+          imageSource: 'original',
+        }
+
+        const res = await fetch('/api/ai/generate-ad-creative', {
+          method: 'POST',
+          signal: controller.signal,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(copyPayload),
+        })
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const raw: any = await res.json()
+        if (!res.ok) throw new Error((raw as { error?: string }).error ?? 'Error generando creativos')
+        const data = raw as AdCreativeResult
+
+        const aiCreatives: GeneratedCreative[] = data.creatives.map((c) => ({
+          id: c.variant,
+          variant: c.variant,
+          variantLabel: c.variantLabel,
+          imageUrl: '',
+          imagePrompt: c.imagePrompt,
+          headline: c.headline,
+          primaryText: c.primaryText,
+          description: c.description,
+          cta: c.cta,
+          style: c.style,
+          concept: c.concept,
+          format: 'square',
+          createdAt: new Date().toISOString(),
+          imageSource: 'ai' as const,
+        }))
+
+        const allCreatives = [originalCreative, ...aiCreatives]
+
+        clearTimers()
+        setGenStep(GEN_STEPS.length - 1)
+        dispatch({ type: 'SET_GENERATED_CREATIVES', payload: allCreatives })
+        dispatch({ type: 'SET_BRAND_KIT', payload: data.brandKit })
+        timersRef.current = [setTimeout(() => {
+          setPreviewCreative(allCreatives[0])
+          setPhase('done')
+        }, 600)]
+
+        // Generate images for AI variants only (not for original)
+        void Promise.all(
+          data.creatives.map(async (c) => {
+            try {
+              const imgRes = await fetch('/api/ai/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: c.imagePrompt }),
+              })
+              const imgData = await imgRes.json() as { imageUrl?: string }
+              if (imgData.imageUrl) {
+                dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id: c.variant, imageUrl: imgData.imageUrl } })
+              }
+            } catch (err) {
+              console.error('[generate-image] variant', c.variant, err)
+            }
+          }),
+        )
+        return
+      }
+
+      // ── BRANCH C: default (no image uploaded) ─────────────────────────────────
+      // Standard 3 AI variants with image generation
       const res = await fetch('/api/ai/generate-ad-creative', {
         method: 'POST',
         signal: controller.signal,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          productName: productFinal?.name ?? productName,
-          productDescription: productFinal?.description ?? productDescription,
-          productCategory: productFinal?.category ?? null,
-          productPrice: productFinal?.price ?? null,
-          productCurrency: productFinal?.currency ?? currency,
-          ageMin: aiStrategy?.audience.ageMin ?? 18,
-          ageMax: aiStrategy?.audience.ageMax ?? 65,
-          gender: aiStrategy?.audience.gender ?? 'all',
-          interests: aiStrategy?.audience.interests ?? [],
-          objective: aiStrategy?.objective ?? 'sales',
-          objectiveLabel: aiStrategy?.objectiveLabel ?? 'Ventas',
-          recommendedCTA: aiStrategy?.recommendedCTA ?? 'Comprar ahora',
-          dailyBudget: parseFloat(dailyBudget) || 10,
-          budgetCurrency: currency,
-          creativeStyle: aiStrategy?.creativeDirection.style ?? 'Profesional',
-          creativeConcept: aiStrategy?.creativeDirection.concept ?? 'Producto como protagonista',
-          platforms,
-        }),
+        body: JSON.stringify(copyPayload),
       })
-
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const raw: any = await res.json()
       if (!res.ok) throw new Error((raw as { error?: string }).error ?? 'Error generando creativos')
       const data: AdCreativeResult = raw as AdCreativeResult
 
-      // Create creatives immediately with empty imageUrl (server will fill them async)
       const creatives: GeneratedCreative[] = data.creatives.map((c) => ({
         id: c.variant,
         variant: c.variant,
@@ -115,6 +256,7 @@ export function CreativeGenerator() {
         concept: c.concept,
         format: 'square',
         createdAt: new Date().toISOString(),
+        imageSource: 'ai' as const,
       }))
 
       clearTimers()
@@ -126,24 +268,25 @@ export function CreativeGenerator() {
         setPhase('done')
       }, 600)]
 
-      // Generate images server-side in parallel (OpenAI → Pollinations fallback)
-      void Promise.all(
-        data.creatives.map(async (c) => {
-          try {
-            const imgRes = await fetch('/api/ai/generate-image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ prompt: c.imagePrompt }),
-            })
-            const imgData = await imgRes.json() as { imageUrl?: string }
-            if (imgData.imageUrl) {
-              dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id: c.variant, imageUrl: imgData.imageUrl } })
+      if (generateImages) {
+        void Promise.all(
+          data.creatives.map(async (c) => {
+            try {
+              const imgRes = await fetch('/api/ai/generate-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: c.imagePrompt }),
+              })
+              const imgData = await imgRes.json() as { imageUrl?: string }
+              if (imgData.imageUrl) {
+                dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id: c.variant, imageUrl: imgData.imageUrl } })
+              }
+            } catch (err) {
+              console.error('[generate-image] variant', c.variant, err)
             }
-          } catch (err) {
-            console.error('[generate-image] variant', c.variant, err)
-          }
-        }),
-      )
+          }),
+        )
+      }
     } catch (err) {
       clearTimers()
       if (err instanceof Error && err.name === 'AbortError') {
@@ -173,6 +316,8 @@ export function CreativeGenerator() {
   async function handleRegenerate(id: string): Promise<void> {
     const creative = generatedCreatives.find(c => c.id === id)
     if (!creative) return
+    // Never regenerate the original uploaded image
+    if (creative.imageSource === 'original') return
     // Clear to trigger loading state in the card
     dispatch({ type: 'REGENERATE_CREATIVE_IMAGE', payload: { id, imageUrl: '' } })
     try {
@@ -328,6 +473,18 @@ export function CreativeGenerator() {
   }
 
   // Phase "done"
+  const doneTitle = productImageMode === 'original_only'
+    ? 'Tu imagen está lista'
+    : productImageMode === 'image_ai_variants'
+    ? '4 creativos generados'
+    : 'Tu anuncio está listo'
+
+  const doneSubtitle = productImageMode === 'original_only'
+    ? 'Revisa el copy generado para tu imagen original'
+    : productImageMode === 'image_ai_variants'
+    ? 'Tu imagen original + 3 variantes IA — elige la que más te guste'
+    : 'Elige la variante que más te guste y personalízala'
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -335,8 +492,8 @@ export function CreativeGenerator() {
         <div className="inline-flex items-center justify-center size-12 rounded-2xl bg-success/10 mx-auto mb-2">
           <Sparkles className="size-6 text-success" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground">Tu anuncio está listo</h2>
-        <p className="text-sm text-muted-foreground">Elige la variante que más te guste y personalízala</p>
+        <h2 className="text-xl font-semibold text-foreground">{doneTitle}</h2>
+        <p className="text-sm text-muted-foreground">{doneSubtitle}</p>
       </div>
 
       {/* 3 Variant cards */}

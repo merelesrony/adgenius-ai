@@ -4,11 +4,14 @@ import { createContext, useContext, useReducer } from 'react'
 import type {
   BuilderState, BuilderAction, BuilderStep, BuilderMode,
   MetaPlatform, SelectedProduct, CampaignStrategy, BuilderSession,
-  GeneratedCreative, BrandKit,
+  GeneratedCreative, BrandKit, ProductImageMode,
 } from './types'
 
 const initialState: BuilderState = {
   step: 1,
+  // Navigation
+  maxUnlockedStep: 1,
+  hasPendingRegeneration: false,
   // Session metadata
   sessionId: null,
   isSaving: false,
@@ -19,7 +22,7 @@ const initialState: BuilderState = {
   productName: '',
   productDescription: '',
   productCategory: '',
-  imageUseMode: null,
+  productImageMode: null,
   // Step 2
   dailyBudget: '',
   currency: 'USD',
@@ -42,34 +45,81 @@ const initialState: BuilderState = {
 
 function builderReducer(state: BuilderState, action: BuilderAction): BuilderState {
   switch (action.type) {
-    case 'NEXT_STEP':
-      return { ...state, step: Math.min(state.step + 1, 8) as BuilderStep }
+    case 'NEXT_STEP': {
+      const next = Math.min(state.step + 1, 8) as BuilderStep
+      return {
+        ...state,
+        step: next,
+        maxUnlockedStep: Math.max(state.maxUnlockedStep, next) as BuilderStep,
+      }
+    }
     case 'PREV_STEP':
       return { ...state, step: Math.max(state.step - 1, 1) as BuilderStep }
-    case 'GO_TO_STEP':
-      return { ...state, step: action.payload }
+    case 'GO_TO_STEP': {
+      const target = action.payload
+      return {
+        ...state,
+        step: target,
+        // Auto-advances (e.g. step 5→7) also unlock the target
+        maxUnlockedStep: Math.max(state.maxUnlockedStep, target) as BuilderStep,
+      }
+    }
     case 'SET_PRODUCT_MODE':
-      return { ...state, productMode: action.payload, selectedProduct: null, imageUseMode: null }
-    case 'SET_IMAGE_USE_MODE':
-      return { ...state, imageUseMode: action.payload }
+      return {
+        ...state,
+        productMode: action.payload,
+        selectedProduct: null,
+        productImageMode: null,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
+    case 'SET_PRODUCT_IMAGE_MODE':
+      return { ...state, productImageMode: action.payload as ProductImageMode | null }
     case 'SET_SELECTED_PRODUCT':
-      return { ...state, selectedProduct: action.payload as SelectedProduct }
+      return {
+        ...state,
+        selectedProduct: action.payload as SelectedProduct,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_PRODUCT_NAME':
-      return { ...state, productName: action.payload }
+      return {
+        ...state,
+        productName: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_PRODUCT_DESCRIPTION':
       return { ...state, productDescription: action.payload }
     case 'SET_PRODUCT_CATEGORY':
       return { ...state, productCategory: action.payload }
     case 'SET_DAILY_BUDGET':
-      return { ...state, dailyBudget: action.payload }
+      return {
+        ...state,
+        dailyBudget: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_CURRENCY':
-      return { ...state, currency: action.payload }
+      return {
+        ...state,
+        currency: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_TOTAL_BUDGET':
-      return { ...state, totalBudget: action.payload }
+      return {
+        ...state,
+        totalBudget: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_COUNTRY':
-      return { ...state, country: action.payload }
+      return {
+        ...state,
+        country: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_CITY':
-      return { ...state, city: action.payload }
+      return {
+        ...state,
+        city: action.payload,
+        hasPendingRegeneration: state.aiStrategy !== null,
+      }
     case 'SET_RADIUS':
       return { ...state, radius: action.payload }
     case 'TOGGLE_PLATFORM': {
@@ -79,10 +129,11 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
         platforms: state.platforms.includes(id)
           ? state.platforms.filter((p) => p !== id)
           : [...state.platforms, id],
+        hasPendingRegeneration: state.aiStrategy !== null,
       }
     }
     case 'SET_AI_STRATEGY':
-      return { ...state, aiStrategy: action.payload as CampaignStrategy }
+      return { ...state, aiStrategy: action.payload as CampaignStrategy, hasPendingRegeneration: false }
     case 'SET_GENERATED_CREATIVES':
       return { ...state, generatedCreatives: action.payload as GeneratedCreative[] }
     case 'SET_BRAND_KIT':
@@ -105,10 +156,22 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
       }
     case 'LOAD_SESSION': {
       const s = action.payload as BuilderSession
+      // Derive maxUnlockedStep from available session data so the user
+      // can navigate back to any step they've already completed
+      let maxUnlocked: number = s.current_step
+      if (s.budget?.dailyBudget) maxUnlocked = Math.max(maxUnlocked, 2)
+      if (s.destination?.country) maxUnlocked = Math.max(maxUnlocked, 3)
+      if ((s.platforms ?? []).length > 0) maxUnlocked = Math.max(maxUnlocked, 4)
+      if (s.ai_strategy) maxUnlocked = Math.max(maxUnlocked, 6)
+      if ((s.creatives ?? []).length > 0) maxUnlocked = Math.max(maxUnlocked, 7)
+      if (s.selected_creative_id) maxUnlocked = Math.max(maxUnlocked, 8)
+
       return {
         ...state,
         sessionId: s.id,
         step: s.current_step,
+        maxUnlockedStep: Math.min(maxUnlocked, 8) as BuilderStep,
+        hasPendingRegeneration: false,
         selectedProduct: s.selected_product,
         productMode: s.selected_product ? 'existing' : null,
         dailyBudget: s.budget?.dailyBudget ?? '',
@@ -132,6 +195,8 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
       return { ...state, isSaving: false, lastSaved: action.payload }
     case 'SET_BUILDER_MODE':
       return { ...state, builderMode: action.payload as BuilderMode }
+    case 'SET_PENDING_REGENERATION':
+      return { ...state, hasPendingRegeneration: action.payload }
     case 'RESET':
       return { ...initialState, builderMode: state.builderMode }
     default:

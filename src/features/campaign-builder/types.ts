@@ -6,7 +6,7 @@ export type BuilderStep = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8
 export type BuilderMode = 'auto' | 'advanced'
 
 export type ProductMode = 'existing' | 'ai' | 'manual' | 'image'
-export type ImageUseMode = 'original' | 'improve' | 'generate'
+export type ProductImageMode = 'image_ai_variants' | 'original_only'
 
 export type MetaPlatform = 'page' | 'facebook' | 'instagram' | 'messenger' | 'whatsapp'
 
@@ -87,6 +87,9 @@ export interface BuilderSession {
 
 export interface BuilderState {
   step: BuilderStep
+  // Navigation
+  maxUnlockedStep: BuilderStep
+  hasPendingRegeneration: boolean
   // Session metadata
   sessionId: string | null
   isSaving: boolean
@@ -97,7 +100,7 @@ export interface BuilderState {
   productName: string
   productDescription: string
   productCategory: string
-  imageUseMode: ImageUseMode | null
+  productImageMode: ProductImageMode | null
   // Step 2 — Budget
   dailyBudget: string
   currency: string
@@ -127,7 +130,7 @@ export type BuilderAction =
   | { type: 'SET_PRODUCT_NAME'; payload: string }
   | { type: 'SET_PRODUCT_DESCRIPTION'; payload: string }
   | { type: 'SET_PRODUCT_CATEGORY'; payload: string }
-  | { type: 'SET_IMAGE_USE_MODE'; payload: ImageUseMode | null }
+  | { type: 'SET_PRODUCT_IMAGE_MODE'; payload: ProductImageMode | null }
   | { type: 'SET_DAILY_BUDGET'; payload: string }
   | { type: 'SET_CURRENCY'; payload: string }
   | { type: 'SET_TOTAL_BUDGET'; payload: string }
@@ -146,4 +149,5 @@ export type BuilderAction =
   | { type: 'SET_SAVING'; payload: boolean }
   | { type: 'MARK_SAVED'; payload: string }
   | { type: 'SET_BUILDER_MODE'; payload: BuilderMode }
+  | { type: 'SET_PENDING_REGENERATION'; payload: boolean }
   | { type: 'RESET' }

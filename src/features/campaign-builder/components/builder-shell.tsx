@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, X } from 'lucide-react'
+import { Package, X, AlertTriangle, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CampaignBuilderProvider, useCampaignBuilder } from '../context'
 import { BuilderProgress } from './builder-progress'
@@ -61,6 +61,39 @@ function ModeToggle() {
           La IA decide audiencia, copy y creativos
         </span>
       )}
+    </div>
+  )
+}
+
+function PendingRegenerationBanner() {
+  const { state, dispatch } = useCampaignBuilder()
+  const { hasPendingRegeneration, aiStrategy } = state
+
+  if (!hasPendingRegeneration || !aiStrategy) return null
+
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-amber-400/40 bg-amber-50/60 dark:bg-amber-900/15 px-4 py-3 mb-2">
+      <AlertTriangle className="size-4 text-amber-500 shrink-0" />
+      <p className="text-xs text-amber-800 dark:text-amber-300 flex-1 min-w-0">
+        Algunos datos cambiaron. Recomendamos actualizar la estrategia con IA.
+      </p>
+      <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'GO_TO_STEP', payload: 5 })}
+          className="flex items-center gap-1.5 text-[11px] font-semibold px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+        >
+          <RefreshCw className="size-3" />
+          Actualizar estrategia
+        </button>
+        <button
+          type="button"
+          onClick={() => dispatch({ type: 'SET_PENDING_REGENERATION', payload: false })}
+          className="text-[11px] text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 transition-colors px-1"
+        >
+          Ignorar
+        </button>
+      </div>
     </div>
   )
 }
@@ -194,6 +227,7 @@ function BuilderContent({ products, initialSession, userId }: BuilderShellProps)
 
       <div className="space-y-6">
         <BuilderProgress />
+        <PendingRegenerationBanner />
         <ProductContextBar />
 
         <div className="max-w-2xl mx-auto w-full px-4 sm:px-0">
