@@ -80,7 +80,6 @@ export function BuilderProgress() {
           const isCompleted = step.id < maxUnlockedStep
           const isActive = currentStep === step.id
           const isLocked = !canNavigateToStep(step.id, maxUnlockedStep)
-          const canNav = canNavigateToStep(step.id, maxUnlockedStep) && !isActive
           const isLast = index === BUILDER_STEPS.length - 1
           const Icon = step.icon
 

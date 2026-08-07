@@ -4,13 +4,14 @@ import { createContext, useContext, useReducer } from 'react'
 import type {
   BuilderState, BuilderAction, BuilderStep, BuilderMode,
   MetaPlatform, SelectedProduct, CampaignStrategy, BuilderSession,
-  GeneratedCreative, BrandKit, ProductImageMode,
+  GeneratedCreative, BrandKit, ProductMode, ProductImageMode,
 } from './types'
 
 const initialState: BuilderState = {
   step: 1,
   // Navigation
   maxUnlockedStep: 1,
+  lastCompletedStep: 0,
   hasPendingRegeneration: false,
   // Session metadata
   sessionId: null,
@@ -51,17 +52,22 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
         ...state,
         step: next,
         maxUnlockedStep: Math.max(state.maxUnlockedStep, next) as BuilderStep,
+        lastCompletedStep: Math.max(state.lastCompletedStep, state.step),
       }
     }
     case 'PREV_STEP':
       return { ...state, step: Math.max(state.step - 1, 1) as BuilderStep }
     case 'GO_TO_STEP': {
       const target = action.payload
+      // When auto-advancing (e.g. step 5→7), mark all intermediate steps as completed
+      const newLastCompleted = target > state.step
+        ? Math.max(state.lastCompletedStep, target - 1)
+        : state.lastCompletedStep
       return {
         ...state,
         step: target,
-        // Auto-advances (e.g. step 5→7) also unlock the target
         maxUnlockedStep: Math.max(state.maxUnlockedStep, target) as BuilderStep,
+        lastCompletedStep: newLastCompleted,
       }
     }
     case 'SET_PRODUCT_MODE':
@@ -156,24 +162,45 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
       }
     case 'LOAD_SESSION': {
       const s = action.payload as BuilderSession
-      // Derive maxUnlockedStep from available session data so the user
-      // can navigate back to any step they've already completed
-      let maxUnlocked: number = s.current_step
-      if (s.budget?.dailyBudget) maxUnlocked = Math.max(maxUnlocked, 2)
-      if (s.destination?.country) maxUnlocked = Math.max(maxUnlocked, 3)
-      if ((s.platforms ?? []).length > 0) maxUnlocked = Math.max(maxUnlocked, 4)
-      if (s.ai_strategy) maxUnlocked = Math.max(maxUnlocked, 6)
-      if ((s.creatives ?? []).length > 0) maxUnlocked = Math.max(maxUnlocked, 7)
-      if (s.selected_creative_id) maxUnlocked = Math.max(maxUnlocked, 8)
+
+      // Navigation state: use persisted DB values when available (migration 013+).
+      // Fall back to derivation for sessions created before the migration.
+      const dbMax = s.max_unlocked_step ?? 1
+      const dbLastCompleted = s.last_completed_step ?? 0
+      let effectiveMax = dbMax
+
+      if (effectiveMax <= 1 && s.current_step > 1) {
+        // Pre-013 session: derive maxUnlockedStep from existing data
+        let derived: number = s.current_step
+        if (s.budget?.dailyBudget) derived = Math.max(derived, 2)
+        if (s.destination?.country) derived = Math.max(derived, 3)
+        if ((s.platforms ?? []).length > 0) derived = Math.max(derived, 4)
+        if (s.ai_strategy) derived = Math.max(derived, 6)
+        if ((s.creatives ?? []).length > 0) derived = Math.max(derived, 7)
+        if (s.selected_creative_id) derived = Math.max(derived, 8)
+        effectiveMax = Math.min(derived, 8)
+      }
+
+      const effectiveLastCompleted = dbLastCompleted > 0
+        ? dbLastCompleted
+        : Math.max(0, effectiveMax - 1)
 
       return {
         ...state,
         sessionId: s.id,
         step: s.current_step,
-        maxUnlockedStep: Math.min(maxUnlocked, 8) as BuilderStep,
-        hasPendingRegeneration: false,
+        // Navigation state — source of truth is the DB
+        maxUnlockedStep: effectiveMax as BuilderStep,
+        lastCompletedStep: effectiveLastCompleted,
+        hasPendingRegeneration: s.has_pending_regeneration ?? false,
+        // Builder settings
+        builderMode: (s.builder_mode as BuilderMode | null) ?? 'auto',
+        // Product state
+        productMode: (s.product_mode as ProductMode | null)
+          ?? (s.selected_product ? 'existing' : null),
+        productImageMode: (s.product_image_mode as ProductImageMode | null) ?? null,
         selectedProduct: s.selected_product,
-        productMode: s.selected_product ? 'existing' : null,
+        // Campaign data
         dailyBudget: s.budget?.dailyBudget ?? '',
         currency: s.budget?.currency ?? 'USD',
         totalBudget: s.budget?.totalBudget ?? '',

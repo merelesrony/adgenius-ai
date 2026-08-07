@@ -71,6 +71,14 @@ export interface BuilderSession {
   user_id: string
   current_step: BuilderStep
   status: 'draft' | 'completed' | 'abandoned' | 'paused'
+  // Navigation state — persisted as of migration 013 (null for pre-migration rows)
+  max_unlocked_step: number | null
+  last_completed_step: number | null
+  has_pending_regeneration: boolean | null
+  builder_mode: string | null
+  product_mode: string | null
+  product_image_mode: string | null
+  // Campaign data
   selected_product: SelectedProduct | null
   budget: BuilderSessionBudget | null
   destination: BuilderSessionDestination | null
@@ -89,6 +97,7 @@ export interface BuilderState {
   step: BuilderStep
   // Navigation
   maxUnlockedStep: BuilderStep
+  lastCompletedStep: number
   hasPendingRegeneration: boolean
   // Session metadata
   sessionId: string | null

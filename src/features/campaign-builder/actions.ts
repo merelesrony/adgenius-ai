@@ -77,6 +77,14 @@ export async function createProductFromBuilderAction(data: {
 type UpsertInput = {
   sessionId: string | null
   currentStep: BuilderStep
+  // Navigation state
+  maxUnlockedStep: number
+  lastCompletedStep: number
+  hasPendingRegeneration: boolean
+  builderMode: string
+  productMode: string | null
+  productImageMode: string | null
+  // Campaign data
   selectedProduct: SelectedProduct | null
   budget: BuilderSessionBudget
   destination: BuilderSessionDestination
@@ -109,7 +117,8 @@ export async function upsertBuilderSessionAction(
       return { success: false, error: 'No autorizado' }
     }
 
-    const payload = {
+    // Base payload — columns that existed before migration 013
+    const basePayload = {
       current_step: data.currentStep,
       selected_product: data.selectedProduct ?? null,
       budget: data.budget,
@@ -121,25 +130,51 @@ export async function upsertBuilderSessionAction(
       selected_creative_id: data.selectedCreativeId ?? null,
     }
 
-    console.log('[BUILDER SAVE] payload', {
-      sessionId: data.sessionId,
-      step: data.currentStep,
-      hasProduct: !!data.selectedProduct,
-      hasBudget: !!data.budget.dailyBudget,
-      hasDestination: !!data.destination.country,
-      platformCount: data.platforms.length,
-      hasStrategy: !!data.aiStrategy,
-    })
+    // Navigation extensions — added in migration 013
+    // Sent on every save; silently omitted if the migration has not been applied yet.
+    const navExtensions = {
+      max_unlocked_step: data.maxUnlockedStep,
+      last_completed_step: data.lastCompletedStep,
+      has_pending_regeneration: data.hasPendingRegeneration,
+      builder_mode: data.builderMode,
+      product_mode: data.productMode ?? null,
+      product_image_mode: data.productImageMode ?? null,
+    }
+
+    const payload = { ...basePayload, ...navExtensions }
+
+    // Helper: true when the error is a missing-column schema-cache issue,
+    // which means migration 013 has not been applied yet.
+    function isSchemaCacheError(msg: string | undefined): boolean {
+      if (!msg) return false
+      return msg.includes('schema cache') || msg.includes('Could not find the')
+    }
+
+    async function doUpdate(p: typeof payload | typeof basePayload) {
+      return supabase
+        .from('campaign_builder_sessions')
+        .update(p)
+        .eq('id', data.sessionId!)
+        .eq('user_id', user.id)
+    }
+
+    async function doInsert(p: typeof payload | typeof basePayload) {
+      return supabase
+        .from('campaign_builder_sessions')
+        .insert({ user_id: user.id, status: 'draft', ...p })
+        .select('id')
+        .single()
+    }
 
     if (data.sessionId) {
       // ── UPDATE existing row ──
-      const { error } = await supabase
-        .from('campaign_builder_sessions')
-        .update(payload)
-        .eq('id', data.sessionId)
-        .eq('user_id', user.id)
+      let { error } = await doUpdate(payload)
 
-      console.log('[BUILDER SAVE] UPDATE result', { sessionId: data.sessionId, error: error?.message ?? null })
+      // If migration 013 columns are missing, retry with legacy payload
+      if (error && isSchemaCacheError(error.message)) {
+        console.warn('[BUILDER SAVE] Migration 013 not applied — retrying without nav fields');
+        ({ error } = await doUpdate(basePayload))
+      }
 
       if (error) {
         console.error('[BUILDER SAVE] UPDATE error:', error)
@@ -149,13 +184,13 @@ export async function upsertBuilderSessionAction(
 
     } else {
       // ── INSERT new row ──
-      const { data: row, error } = await supabase
-        .from('campaign_builder_sessions')
-        .insert({ user_id: user.id, status: 'draft', ...payload })
-        .select('id')
-        .single()
+      let { data: row, error } = await doInsert(payload)
 
-      console.log('[BUILDER SAVE] INSERT result', { row, error: error?.message ?? null })
+      // If migration 013 columns are missing, retry with legacy payload
+      if (error && isSchemaCacheError(error.message)) {
+        console.warn('[BUILDER SAVE] Migration 013 not applied — retrying without nav fields');
+        ({ data: row, error } = await doInsert(basePayload))
+      }
 
       if (error) {
         console.error('[BUILDER SAVE] INSERT error:', error)
@@ -166,7 +201,6 @@ export async function upsertBuilderSessionAction(
         return { success: false, error: 'No se creó la sesión' }
       }
 
-      console.log('[BUILDER SAVE] INSERT OK — new sessionId:', row.id)
       return { success: true, id: row.id as string }
     }
   } catch (err) {

@@ -8,7 +8,7 @@ import {
   Target, Users, Globe, DollarSign, MapPin, Eye, Edit2, Copy, Trash2,
   Megaphone, ExternalLink, Sparkles, AlertCircle, Clock, Save, X,
   BarChart2, Zap, ChevronDown, ChevronUp, Check, Loader2, RefreshCw,
-  TrendingUp,
+  TrendingUp, Brain,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -28,6 +28,7 @@ import { CAMPAIGN_OBJECTIVES, COUNTRIES } from '@/constants/options'
 // Image generation is handled server-side via /api/ai/generate-image
 import type { Database } from '@/types/database'
 import type { AdCreativeAIResult, CampaignOptimizationResult } from '@/lib/ai/AIManager'
+import { CampaignIntelligenceTab } from './campaign-intelligence-tab'
 
 type CampaignRow = Database['public']['Tables']['campaigns']['Row']
 type CreativeRow = Database['public']['Tables']['campaign_creatives']['Row']
@@ -715,6 +716,7 @@ function CreativeOptimizerPanel({ campaign }: CreativeOptimizerProps) {
 
 export function CampaignReview({ campaign, creativeUrl, creatives = [], optimizations = [] }: CampaignReviewProps) {
   const router = useRouter()
+  const [activeTab, setActiveTab] = useState<'overview' | 'intelligence'>('overview')
   const [isPendingStatus, startStatusTransition] = useTransition()
   const [isPendingDuplicate, startDuplicateTransition] = useTransition()
   const [isPendingDelete, startDeleteTransition] = useTransition()
@@ -862,6 +864,41 @@ export function CampaignReview({ campaign, creativeUrl, creatives = [], optimiza
         </div>
       )}
 
+      {/* Tab navigation */}
+      <div className="flex gap-1 rounded-xl border border-border bg-card/80 p-1">
+        <button
+          type="button"
+          onClick={() => setActiveTab('overview')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all',
+            activeTab === 'overview'
+              ? 'bg-background shadow-sm text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <BarChart2 className="size-3.5" />
+          Resumen
+        </button>
+        <button
+          type="button"
+          onClick={() => setActiveTab('intelligence')}
+          className={cn(
+            'flex-1 flex items-center justify-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition-all',
+            activeTab === 'intelligence'
+              ? 'bg-background shadow-sm text-foreground'
+              : 'text-muted-foreground hover:text-foreground',
+          )}
+        >
+          <Brain className="size-3.5" />
+          Campaign Intelligence
+        </button>
+      </div>
+
+      {activeTab === 'intelligence' && (
+        <CampaignIntelligenceTab campaign={campaign} creatives={creatives} />
+      )}
+
+      {activeTab === 'overview' && (
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-6 items-start">
         {/* Left */}
         <div className="space-y-4">
@@ -1232,6 +1269,7 @@ export function CampaignReview({ campaign, creativeUrl, creatives = [], optimiza
           </div>
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -739,3 +739,177 @@ export async function generateAdCreative(input: {
 
   return result
 }
+
+// ── Campaign Intelligence ─────────────────────────────────────────────────────
+
+export interface CampaignIntelligenceInput {
+  productName: string
+  productDescription: string | null
+  productCategory: string | null
+  productPrice: number | null
+  productCurrency: string
+  objective: string
+  dailyBudget: number | null
+  budgetCurrency: string
+  country: string
+  city: string | null
+  targetAgeMin: number | null
+  targetAgeMax: number | null
+  targetGender: string
+  targetInterests: string[]
+  platforms: string[]
+  aiCopy: { headline: string; body: string; description: string; cta: string } | null
+  hasCreative: boolean
+  hasVisualDNA: boolean
+  hasBrandKit: boolean
+  currentScore: number | null
+}
+
+export interface CampaignIntelligenceSubScores {
+  visual: number
+  copy: number
+  audience: number
+  budget: number
+  brand: number
+  conversion: number
+  metaBestPractices: number
+}
+
+export interface CampaignIntelligenceFinding {
+  id: string
+  category: string
+  title: string
+  description: string
+  priority: 'high' | 'medium' | 'low'
+}
+
+export interface CampaignIntelligenceRecommendation {
+  id: string
+  priority: 'high' | 'medium' | 'low'
+  category: string
+  title: string
+  description: string
+  oneClickFix: {
+    available: boolean
+    field: 'cta' | 'headline' | 'primary_text' | 'description' | null
+    value: string | null
+  }
+}
+
+export interface CampaignIntelligencePrediction {
+  estimatedReach: { min: number; max: number; label: string }
+  expectedCTR: { min: number; max: number }
+  conversionProbability: 'low' | 'medium' | 'high' | 'very_high'
+  competitionLevel: 'low' | 'medium' | 'high' | 'very_high'
+  difficulty: 'easy' | 'medium' | 'hard' | 'very_hard'
+  reasoning: string
+}
+
+export interface CampaignIntelligenceRisk {
+  id: string
+  severity: 'error' | 'warning' | 'info'
+  title: string
+  description: string
+}
+
+export interface CampaignIntelligenceResult {
+  overallScore: number
+  subScores: CampaignIntelligenceSubScores
+  findings: CampaignIntelligenceFinding[]
+  recommendations: CampaignIntelligenceRecommendation[]
+  prediction: CampaignIntelligencePrediction
+  risks: CampaignIntelligenceRisk[]
+  coachAdvice: string
+  quickWins: string[]
+  summary: string
+}
+
+export async function analyzeCampaignIntelligence(
+  input: CampaignIntelligenceInput,
+): Promise<CampaignIntelligenceResult> {
+  const {
+    productName, productDescription, productCategory,
+    productPrice, productCurrency,
+    objective, dailyBudget, budgetCurrency,
+    country, city,
+    targetAgeMin, targetAgeMax, targetGender, targetInterests,
+    platforms, aiCopy, hasCreative, hasVisualDNA, hasBrandKit,
+  } = input
+
+  const currency = productCurrency ?? budgetCurrency ?? 'USD'
+  const priceStr = productPrice ? formatCurrency(productPrice, currency) : 'No especificado'
+  const budgetStr = dailyBudget ? `${formatCurrency(dailyBudget, budgetCurrency)}/día` : 'No especificado'
+  const locationStr = city ? `${city}, ${country}` : country
+  const genderStr = targetGender === 'all' ? 'Todos los géneros' : targetGender === 'male' ? 'Solo hombres' : 'Solo mujeres'
+  const ageStr = `${targetAgeMin ?? 18}–${targetAgeMax ?? 65} años`
+  const interestStr = targetInterests.length > 0 ? targetInterests.slice(0, 8).join(', ') : 'No definidos'
+  const platformStr = platforms.length > 0 ? platforms.join(', ') : 'No especificadas'
+
+  const prompt = [
+    `Eres un especialista senior en Meta Ads con 10+ años de experiencia en mercados hispanohablantes.`,
+    `Analiza EXHAUSTIVAMENTE esta campaña y devuelve un diagnóstico profesional completo basado en los datos reales.`,
+    ``,
+    `DATOS DE LA CAMPAÑA:`,
+    `PRODUCTO: ${productName} | Categoría: ${productCategory ?? 'No especificada'} | Precio: ${priceStr}`,
+    `Descripción: ${productDescription ?? 'No especificada'}`,
+    ``,
+    `CONFIGURACIÓN:`,
+    `- Objetivo: ${objective}`,
+    `- Presupuesto: ${budgetStr}`,
+    `- Plataformas: ${platformStr}`,
+    `- Ubicación: ${locationStr}`,
+    `- Audiencia: ${ageStr}, ${genderStr}`,
+    `- Intereses: ${interestStr}`,
+    `- Tiene creativo/imagen: ${hasCreative ? 'Sí' : 'No'}`,
+    `- Tiene Visual DNA: ${hasVisualDNA ? 'Sí' : 'No'}`,
+    `- Tiene Brand Kit: ${hasBrandKit ? 'Sí' : 'No'}`,
+    ``,
+    `COPY ACTUAL:`,
+    `- Headline: ${aiCopy?.headline ?? '(sin headline)'}`,
+    `- Texto principal: ${aiCopy?.body ?? '(sin texto)'}`,
+    `- Descripción: ${aiCopy?.description ?? '(sin descripción)'}`,
+    `- CTA: ${aiCopy?.cta ?? '(sin CTA)'}`,
+    ``,
+    `INSTRUCCIONES CRÍTICAS:`,
+    `1. Analiza CADA elemento real (no uses generalidades vacías)`,
+    `2. Scores deben reflejar calidad real: 0-49=muy malo, 50-69=regular, 70-84=bueno, 85-100=excelente`,
+    `3. Si no hay creativo → visual score bajo (30-45)`,
+    `4. Si no hay CTA o está genérico → conversion score bajo`,
+    `5. Si el presupuesto no está definido → budget score bajo (20-35)`,
+    `6. Las recommendations con oneClickFix deben incluir el valor EXACTO a aplicar`,
+    `7. El campo "field" en oneClickFix: usa "primary_text" para el texto del anuncio, "headline", "description" o "cta"`,
+    `8. El coachAdvice debe hablar de ESTA campaña específica en primera persona ("Si esta fuera mi campaña...")`,
+    `9. Las predicciones deben basarse en los datos reales (presupuesto, audiencia, objetivo, ubicación)`,
+    `10. Los riesgos deben ser concretos y accionables`,
+    ``,
+    `Devuelve ÚNICAMENTE este JSON:`,
+    `{"overallScore":78,"subScores":{"visual":60,"copy":82,"audience":70,"budget":65,"brand":80,"conversion":72,"metaBestPractices":85},"findings":[{"id":"f1","category":"copy","title":"Título concreto del hallazgo","description":"Diagnóstico específico sobre esta campaña","priority":"high"},{"id":"f2","category":"audience","title":"...","description":"...","priority":"medium"}],"recommendations":[{"id":"r1","priority":"high","category":"copy","title":"Título accionable","description":"Explicación de por qué y qué hacer","oneClickFix":{"available":true,"field":"cta","value":"Comprar Ahora"}},{"id":"r2","priority":"medium","category":"audience","title":"...","description":"...","oneClickFix":{"available":false,"field":null,"value":null}}],"prediction":{"estimatedReach":{"min":3000,"max":12000,"label":"personas/día"},"expectedCTR":{"min":1.2,"max":2.8},"conversionProbability":"medium","competitionLevel":"medium","difficulty":"medium","reasoning":"Explicación de la predicción basada en los datos reales"},"risks":[{"id":"risk1","severity":"warning","title":"Título del riesgo","description":"Descripción concreta del riesgo y su impacto"}],"coachAdvice":"Si esta fuera mi campaña, primero cambiaría... porque...","quickWins":["Acción concreta 1","Acción concreta 2","Acción concreta 3"],"summary":"Resumen ejecutivo de 2-3 oraciones sobre el estado real de esta campaña"}`,
+  ].join('\n')
+
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 4000)
+  const result = parseJSON<CampaignIntelligenceResult>(raw, 'analyzeCampaignIntelligence')
+
+  // Normalize to avoid runtime crashes
+  if (typeof result.overallScore !== 'number') result.overallScore = 70
+  if (!result.subScores) {
+    result.subScores = { visual: 70, copy: 70, audience: 70, budget: 70, brand: 70, conversion: 70, metaBestPractices: 70 }
+  }
+  if (!Array.isArray(result.findings)) result.findings = []
+  if (!Array.isArray(result.recommendations)) result.recommendations = []
+  if (!result.prediction) {
+    result.prediction = {
+      estimatedReach: { min: 1000, max: 5000, label: 'personas/día' },
+      expectedCTR: { min: 1.0, max: 3.0 },
+      conversionProbability: 'medium',
+      competitionLevel: 'medium',
+      difficulty: 'medium',
+      reasoning: 'Estimación basada en los parámetros de la campaña.',
+    }
+  }
+  if (!Array.isArray(result.risks)) result.risks = []
+  if (!result.coachAdvice) result.coachAdvice = ''
+  if (!Array.isArray(result.quickWins)) result.quickWins = []
+  if (!result.summary) result.summary = ''
+
+  return result
+}

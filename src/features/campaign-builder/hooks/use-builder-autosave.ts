@@ -9,13 +9,12 @@ const DEBOUNCE_MS = 1000
 export function useBuilderAutosave() {
   const { state, dispatch } = useCampaignBuilder()
   const [saveError, setSaveError] = useState<string | null>(null)
-  // Incremented when the user comes back online to trigger a retry save
   const [retrySignal, setRetrySignal] = useState(0)
 
-  // Ref so the save closure always has the latest sessionId without putting
-  // it in the effect deps (which would trigger an extra save on SET_SESSION_ID).
   const sessionIdRef = useRef<string | null>(state.sessionId)
   const isSavingRef = useRef(false)
+  // Used to skip the immediate-save effect on first mount
+  const hasMountedRef = useRef(false)
 
   useEffect(() => {
     sessionIdRef.current = state.sessionId
@@ -30,6 +29,12 @@ export function useBuilderAutosave() {
 
   const {
     step,
+    maxUnlockedStep,
+    lastCompletedStep,
+    hasPendingRegeneration,
+    builderMode,
+    productMode,
+    productImageMode,
     selectedProduct,
     dailyBudget, currency, totalBudget,
     country, city, radius,
@@ -38,7 +43,7 @@ export function useBuilderAutosave() {
     generatedCreatives, brandKit, selectedCreativeId,
   } = state
 
-  // Stable save function used by both the debounced effect and the retry trigger
+  // Central save function — always sends the full current state snapshot
   const performSave = useCallback(async () => {
     if (isSavingRef.current) return
     isSavingRef.current = true
@@ -51,6 +56,14 @@ export function useBuilderAutosave() {
       result = await upsertBuilderSessionAction({
         sessionId: sessionIdRef.current,
         currentStep: step,
+        // Navigation state
+        maxUnlockedStep,
+        lastCompletedStep,
+        hasPendingRegeneration,
+        builderMode,
+        productMode: productMode ?? null,
+        productImageMode: productImageMode ?? null,
+        // Campaign data
         selectedProduct,
         budget: { dailyBudget, currency, totalBudget },
         destination: { country, city, radius },
@@ -81,10 +94,17 @@ export function useBuilderAutosave() {
       setSaveError(errMsg)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedProduct, dailyBudget, currency, totalBudget, country, city, radius, platforms, aiStrategy, generatedCreatives, brandKit, selectedCreativeId])
+  }, [
+    step, maxUnlockedStep, lastCompletedStep, hasPendingRegeneration,
+    builderMode, productMode, productImageMode,
+    selectedProduct, dailyBudget, currency, totalBudget,
+    country, city, radius, platforms, aiStrategy,
+    generatedCreatives, brandKit, selectedCreativeId,
+  ])
 
+  // ── Debounced save: fires when campaign data changes (1 s debounce) ──────────
   useEffect(() => {
-    // Nothing meaningful to save until the user picks a product on step 1
+    // Nothing meaningful to save until the user picks a product
     if (step === 1 && !selectedProduct) return
 
     const timer = setTimeout(async () => {
@@ -93,7 +113,27 @@ export function useBuilderAutosave() {
 
     return () => clearTimeout(timer)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, selectedProduct, dailyBudget, currency, totalBudget, country, city, radius, platforms, aiStrategy, generatedCreatives, brandKit, selectedCreativeId, retrySignal])
+  }, [
+    step, selectedProduct, dailyBudget, currency, totalBudget,
+    country, city, radius, platforms, aiStrategy,
+    generatedCreatives, brandKit, selectedCreativeId,
+    retrySignal,
+  ])
+
+  // ── Immediate save: fires when navigation state changes (no debounce) ────────
+  // Critical changes (step advance, pending regen flag, unlocked steps) must
+  // survive a tab close, so we skip the 1-second debounce for these.
+  useEffect(() => {
+    // Skip on first mount — state hasn't been modified by the user yet
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true
+      return
+    }
+    if (step === 1 && !selectedProduct) return
+
+    void performSave()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxUnlockedStep, lastCompletedStep, hasPendingRegeneration])
 
   return { saveError }
 }

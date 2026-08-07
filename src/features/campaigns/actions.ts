@@ -9,6 +9,7 @@ import { checkCampaignLimit } from '@/lib/campaign-limit'
 import type { AudienceResult, ScoreResult } from './types'
 import { convertFromUSD } from '@/lib/currency'
 import type { MarketingStrategy } from '@/features/ai-strategy/types'
+import type { CampaignAIReview } from './intelligence/types'
 
 export interface CreateFromStrategyInput {
   strategy: MarketingStrategy
@@ -662,5 +663,68 @@ export async function updateCampaignCopyAction(
     return { success: true, data: undefined }
   } catch {
     return { success: false, error: 'Error inesperado' }
+  }
+}
+
+// ── Campaign Intelligence actions ─────────────────────────────────────────────
+
+export async function applyIntelligenceFixAction(
+  campaignId: string,
+  field: 'cta' | 'headline' | 'primary_text' | 'description',
+  value: string,
+): Promise<ActionResult<void>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autorizado' }
+
+    const { data: row } = await supabase
+      .from('campaigns')
+      .select('ai_copy')
+      .eq('id', campaignId)
+      .eq('user_id', user.id)
+      .single()
+
+    const currentCopy = ((row?.ai_copy ?? {}) as Record<string, string>)
+    const dbField = field === 'primary_text' ? 'body' : field
+    const newCopy = { ...currentCopy, [dbField]: value }
+
+    const { error } = await supabase
+      .from('campaigns')
+      .update({ ai_copy: newCopy })
+      .eq('id', campaignId)
+      .eq('user_id', user.id)
+
+    if (error) return { success: false, error: error.message }
+
+    revalidatePath(`/campaigns/${campaignId}/review`)
+    revalidatePath(`/campaigns/${campaignId}`)
+    return { success: true, data: undefined }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error inesperado' }
+  }
+}
+
+export async function getIntelligenceHistoryAction(
+  campaignId: string,
+): Promise<ActionResult<CampaignAIReview[]>> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = (await createClient()) as any
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autorizado' }
+
+    const { data, error } = await supabase
+      .from('campaign_ai_reviews')
+      .select('*')
+      .eq('campaign_id', campaignId)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, data: (data ?? []) as CampaignAIReview[] }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error inesperado' }
   }
 }
