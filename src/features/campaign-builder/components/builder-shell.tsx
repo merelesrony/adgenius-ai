@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Package, X, AlertTriangle, RefreshCw } from 'lucide-react'
+import { Package, X, AlertTriangle, RefreshCw, Save } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { CampaignBuilderProvider, useCampaignBuilder } from '../context'
 import { BuilderProgress } from './builder-progress'
@@ -25,6 +25,7 @@ import { OfflineBanner } from './offline-banner'
 import { formatCurrency } from '@/lib/currency'
 import type { Database } from '@/types/database'
 import type { BuilderSession } from '../types'
+import type { LastCampaignPrefs } from '@/features/campaigns/actions'
 
 type ProductRow = Database['public']['Tables']['products']['Row']
 
@@ -32,6 +33,7 @@ interface BuilderShellProps {
   products: ProductRow[]
   initialSession?: BuilderSession | null
   userId: string
+  defaultPrefs?: LastCampaignPrefs
 }
 
 function ModeToggle() {
@@ -143,11 +145,27 @@ function ProductContextBar() {
   )
 }
 
-function BuilderContent({ products, initialSession, userId }: BuilderShellProps) {
+function BuilderContent({ products, initialSession, userId, defaultPrefs }: BuilderShellProps) {
   const { state, dispatch } = useCampaignBuilder()
   const router = useRouter()
   const [showModal, setShowModal] = useState(!!initialSession)
   const [showCancelModal, setShowCancelModal] = useState(false)
+
+  // Auto-scroll to top on every step change
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [state.step])
+
+  // Apply last-campaign preferences when starting a fresh session (no draft loaded)
+  useEffect(() => {
+    if (!defaultPrefs || initialSession) return
+    if (defaultPrefs.country) dispatch({ type: 'SET_COUNTRY', payload: defaultPrefs.country })
+    if (defaultPrefs.city) dispatch({ type: 'SET_CITY', payload: defaultPrefs.city })
+    if (defaultPrefs.platforms?.length) dispatch({ type: 'SET_PLATFORMS', payload: defaultPrefs.platforms as import('../types').MetaPlatform[] })
+    if (defaultPrefs.dailyBudget) dispatch({ type: 'SET_DAILY_BUDGET', payload: defaultPrefs.dailyBudget })
+    if (defaultPrefs.currency) dispatch({ type: 'SET_CURRENCY', payload: defaultPrefs.currency })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [isDeleting, setIsDeleting] = useState(false)
 
   // Wire autosave — returns live error state
@@ -179,7 +197,7 @@ function BuilderContent({ products, initialSession, userId }: BuilderShellProps)
   function handleSaveAndExit() {
     // Autosave already persisted the session as 'draft' — just navigate away
     setShowCancelModal(false)
-    router.push('/campaigns')
+    router.push('/dashboard')
   }
 
   async function handleResetCampaign() {
@@ -244,16 +262,24 @@ function BuilderContent({ products, initialSession, userId }: BuilderShellProps)
 
         <BuilderNav />
 
-        {/* Persistent cancel button — visible on steps 1–7 */}
+        {/* Bottom action bar — visible on steps 1–7 */}
         {state.step < 8 && (
-          <div className="flex justify-center">
+          <div className="flex items-center justify-center gap-4">
+            <button
+              type="button"
+              onClick={handleSaveAndExit}
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1.5 px-3 rounded-full hover:bg-muted/60 border border-border/50"
+            >
+              <Save className="size-3" />
+              Guardar y salir
+            </button>
             <button
               type="button"
               onClick={() => setShowCancelModal(true)}
-              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors py-1 px-3 rounded-full hover:bg-muted/60"
+              className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-destructive transition-colors py-1 px-2 rounded-full"
             >
               <X className="size-3" />
-              Cancelar campaña
+              Cancelar
             </button>
           </div>
         )}
@@ -267,10 +293,10 @@ function BuilderContent({ products, initialSession, userId }: BuilderShellProps)
   )
 }
 
-export function BuilderShell({ products, initialSession, userId }: BuilderShellProps) {
+export function BuilderShell({ products, initialSession, userId, defaultPrefs }: BuilderShellProps) {
   return (
     <CampaignBuilderProvider>
-      <BuilderContent products={products} initialSession={initialSession} userId={userId} />
+      <BuilderContent products={products} initialSession={initialSession} userId={userId} defaultPrefs={defaultPrefs} />
     </CampaignBuilderProvider>
   )
 }

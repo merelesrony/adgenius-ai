@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { BuilderShell } from '@/features/campaign-builder/components/builder-shell'
 import { Wand2 } from 'lucide-react'
 import type { BuilderSession } from '@/features/campaign-builder/types'
+import { getLastCampaignPrefsAction } from '@/features/campaigns/actions'
 
 export const metadata = {
   title: 'Smart Campaign Builder — AdGenius AI',
@@ -15,7 +16,7 @@ export default async function CampaignBuilderPage() {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const [{ data: products }, { data: draftRow }] = await Promise.all([
+  const [{ data: products }, { data: draftRow }, lastPrefsResult] = await Promise.all([
     supabase
       .from('products')
       .select('*')
@@ -31,9 +32,12 @@ export default async function CampaignBuilderPage() {
       .order('updated_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+
+    getLastCampaignPrefsAction(),
   ])
 
   const initialSession = (draftRow ?? null) as BuilderSession | null
+  const defaultPrefs = lastPrefsResult.success ? lastPrefsResult.data : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,7 +60,7 @@ export default async function CampaignBuilderPage() {
 
       {/* Builder content */}
       <div className="max-w-3xl mx-auto px-4 sm:px-6 py-8">
-        <BuilderShell products={products ?? []} initialSession={initialSession} userId={user?.id ?? ''} />
+        <BuilderShell products={products ?? []} initialSession={initialSession} userId={user?.id ?? ''} defaultPrefs={defaultPrefs ?? undefined} />
       </div>
     </div>
   )

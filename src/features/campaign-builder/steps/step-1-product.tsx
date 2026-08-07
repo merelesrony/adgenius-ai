@@ -1147,78 +1147,91 @@ function OptionCards({
 }) {
   return (
     <div className="space-y-3">
-      {/* PRIMARY: image upload */}
-      <button
-        type="button"
-        onClick={() => onSelect('image')}
-        className={cn(
-          'group w-full text-left rounded-2xl border-2 border-brand/30 bg-gradient-to-br from-brand/5 to-purple-500/5',
-          'hover:border-brand hover:from-brand/10 hover:to-purple-500/10 transition-all duration-200 p-5',
-        )}
-      >
-        <div className="flex items-start gap-4">
-          <div className="flex items-center justify-center size-12 rounded-xl bg-brand/15 shrink-0 group-hover:bg-brand/20 transition-colors">
-            <ImagePlus className="size-6 text-brand" />
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-foreground">Ya tengo una imagen de mi producto</span>
-              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand/15 text-brand border border-brand/20">
-                Recomendado
-              </span>
-            </div>
-            <p className="text-sm text-muted-foreground mt-1">
-              Sube una fotografía y la IA hará el resto — nombre, descripción, categoría y ADN Visual automáticos.
-            </p>
-            <div className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-brand group-hover:gap-2 transition-all">
-              <ImagePlus className="size-4" />
-              Subir imagen
-              <ChevronRight className="size-4" />
-            </div>
-          </div>
-        </div>
-      </button>
-
-      {/* SECONDARY: two smaller cards */}
+      {/* TWO primary equal cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        {/* Card 1: Upload image */}
         <button
           type="button"
-          onClick={() => onSelect('ai')}
-          className="group w-full text-left rounded-xl border-2 border-border bg-card hover:border-brand/40 hover:bg-muted/30 transition-all duration-200 p-4"
+          onClick={() => onSelect('image')}
+          className={cn(
+            'group w-full text-left rounded-2xl border-2 border-brand/30 bg-gradient-to-br from-brand/5 to-purple-500/5',
+            'hover:border-brand hover:from-brand/10 hover:to-purple-500/10 transition-all duration-200 p-5',
+          )}
         >
-          <div className="flex items-start gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-muted shrink-0 group-hover:bg-purple-500/10 transition-colors">
-              <Sparkles className="size-5 text-muted-foreground group-hover:text-purple-500 transition-colors" />
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center justify-center size-12 rounded-xl bg-brand/15 group-hover:bg-brand/20 transition-colors">
+              <ImagePlus className="size-6 text-brand" />
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-semibold text-foreground">No tengo una imagen</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Describe tu producto y la IA creará todo automáticamente
+            <div>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <span className="text-sm font-bold text-foreground">📸 Subir imagen</span>
+                <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-brand/15 text-brand border border-brand/20">
+                  Recomendado
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Arrastra, pega o selecciona tu foto — la IA extrae nombre, descripción, categoría y ADN Visual.
               </p>
             </div>
           </div>
         </button>
 
+        {/* Card 2: Describe product */}
         <button
           type="button"
-          onClick={() => onSelect('existing')}
-          className="group w-full text-left rounded-xl border-2 border-border bg-card hover:border-brand/40 hover:bg-muted/30 transition-all duration-200 p-4"
+          onClick={() => onSelect('ai')}
+          className={cn(
+            'group w-full text-left rounded-2xl border-2 border-purple-500/20 bg-gradient-to-br from-purple-500/5 to-brand/5',
+            'hover:border-purple-500/50 hover:from-purple-500/10 hover:to-brand/10 transition-all duration-200 p-5',
+          )}
         >
-          <div className="flex items-start gap-3">
-            <div className="flex items-center justify-center size-10 rounded-lg bg-muted shrink-0 group-hover:bg-brand/10 transition-colors">
-              <Package className="size-5 text-muted-foreground group-hover:text-brand transition-colors" />
+          <div className="flex flex-col items-start gap-3">
+            <div className="flex items-center justify-center size-12 rounded-xl bg-purple-500/10 group-hover:bg-purple-500/20 transition-colors">
+              <Sparkles className="size-6 text-purple-500" />
             </div>
-            <div className="flex-1 min-w-0">
-              <span className="text-sm font-semibold text-foreground">Elegir producto existente</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                {activeProductsCount > 0
-                  ? `${activeProductsCount} producto${activeProductsCount !== 1 ? 's' : ''} disponible${activeProductsCount !== 1 ? 's' : ''}`
-                  : 'Selecciona de tu biblioteca'}
+            <div>
+              <span className="text-sm font-bold text-foreground block mb-1">✍️ Describir mi producto</span>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Escribe en tus palabras y la IA completa automáticamente toda la información.
               </p>
             </div>
           </div>
         </button>
       </div>
+
+      {/* Secondary: existing product */}
+      {activeProductsCount > 0 && (
+        <button
+          type="button"
+          onClick={() => onSelect('existing')}
+          className="group w-full text-left rounded-xl border border-border bg-card hover:border-brand/30 hover:bg-muted/20 transition-all duration-200 p-3"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center size-8 rounded-lg bg-muted group-hover:bg-brand/10 transition-colors shrink-0">
+              <Package className="size-4 text-muted-foreground group-hover:text-brand transition-colors" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <span className="text-xs font-semibold text-foreground">Usar producto existente</span>
+              <p className="text-[11px] text-muted-foreground">
+                {activeProductsCount} producto{activeProductsCount !== 1 ? 's' : ''} en tu biblioteca
+              </p>
+            </div>
+            <ChevronRight className="size-3.5 text-muted-foreground/50 group-hover:text-brand transition-colors shrink-0" />
+          </div>
+        </button>
+      )}
+      {activeProductsCount === 0 && (
+        <button
+          type="button"
+          onClick={() => onSelect('existing')}
+          className="group w-full text-left rounded-xl border border-dashed border-border bg-card/50 hover:border-brand/30 transition-all duration-200 p-3"
+        >
+          <div className="flex items-center gap-3">
+            <Package className="size-4 text-muted-foreground/50 shrink-0" />
+            <span className="text-xs text-muted-foreground">Elegir de mi biblioteca de productos</span>
+          </div>
+        </button>
+      )}
     </div>
   )
 }

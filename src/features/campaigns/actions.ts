@@ -705,6 +705,52 @@ export async function applyIntelligenceFixAction(
   }
 }
 
+export interface LastCampaignPrefs {
+  country: string | null
+  city: string | null
+  platforms: string[]
+  dailyBudget: string | null
+  currency: string | null
+}
+
+export async function getLastCampaignPrefsAction(): Promise<ActionResult<LastCampaignPrefs>> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, error: 'No autenticado' }
+
+    const { data } = await supabase
+      .from('campaigns')
+      .select('target_country, target_city, platforms, daily_budget, currency')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (!data) return { success: true, data: { country: null, city: null, platforms: [], dailyBudget: null, currency: null } }
+
+    const row = data as {
+      target_country: string | null
+      target_city: string | null
+      platforms: string[] | null
+      daily_budget: number | null
+      currency: string | null
+    }
+    return {
+      success: true,
+      data: {
+        country: row.target_country ?? null,
+        city: row.target_city ?? null,
+        platforms: Array.isArray(row.platforms) ? row.platforms : [],
+        dailyBudget: row.daily_budget != null ? String(row.daily_budget) : null,
+        currency: row.currency ?? null,
+      },
+    }
+  } catch (err) {
+    return { success: false, error: err instanceof Error ? err.message : 'Error inesperado' }
+  }
+}
+
 export async function getIntelligenceHistoryAction(
   campaignId: string,
 ): Promise<ActionResult<CampaignAIReview[]>> {

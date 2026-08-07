@@ -886,7 +886,7 @@ export async function analyzeCampaignIntelligence(
     `{"overallScore":78,"subScores":{"visual":60,"copy":82,"audience":70,"budget":65,"brand":80,"conversion":72,"metaBestPractices":85},"findings":[{"id":"f1","category":"copy","title":"Título concreto del hallazgo","description":"Diagnóstico específico sobre esta campaña","priority":"high"},{"id":"f2","category":"audience","title":"...","description":"...","priority":"medium"}],"recommendations":[{"id":"r1","priority":"high","category":"copy","title":"Título accionable","description":"Explicación de por qué y qué hacer","oneClickFix":{"available":true,"field":"cta","value":"Comprar Ahora"}},{"id":"r2","priority":"medium","category":"audience","title":"...","description":"...","oneClickFix":{"available":false,"field":null,"value":null}}],"prediction":{"estimatedReach":{"min":3000,"max":12000,"label":"personas/día"},"expectedCTR":{"min":1.2,"max":2.8},"conversionProbability":"medium","competitionLevel":"medium","difficulty":"medium","reasoning":"Explicación de la predicción basada en los datos reales"},"risks":[{"id":"risk1","severity":"warning","title":"Título del riesgo","description":"Descripción concreta del riesgo y su impacto"}],"coachAdvice":"Si esta fuera mi campaña, primero cambiaría... porque...","quickWins":["Acción concreta 1","Acción concreta 2","Acción concreta 3"],"summary":"Resumen ejecutivo de 2-3 oraciones sobre el estado real de esta campaña"}`,
   ].join('\n')
 
-  const raw = await callClaude(prompt, 'claude-sonnet-5', 4000)
+  const raw = await callClaude(prompt, 'claude-sonnet-5', 6000)
   const result = parseJSON<CampaignIntelligenceResult>(raw, 'analyzeCampaignIntelligence')
 
   // Normalize to avoid runtime crashes

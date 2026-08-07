@@ -286,7 +286,7 @@ export function CampaignIntelligenceTab({ campaign }: Props) {
           <Brain className="size-10 text-brand" />
         </div>
         <div className="space-y-2 max-w-md">
-          <h3 className="text-lg font-semibold text-foreground">Campaign Intelligence</h3>
+          <h3 className="text-lg font-semibold text-foreground">✨ Optimización IA</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
             La IA analiza tu campaña como lo haría un especialista senior en Meta Ads: copy, audiencia, presupuesto, riesgos, y predicciones de rendimiento.
           </p>
@@ -309,7 +309,7 @@ export function CampaignIntelligenceTab({ campaign }: Props) {
           className="gap-2 bg-gradient-to-r from-brand to-purple-600 hover:from-brand/90 hover:to-purple-500 text-white px-6"
         >
           <Brain className="size-4" />
-          Analizar campaña con IA
+          Analizar con IA
         </Button>
       </div>
     )

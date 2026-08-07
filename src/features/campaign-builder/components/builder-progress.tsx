@@ -54,7 +54,7 @@ export function BuilderProgress() {
                 disabled={isActive || isLocked}
                 title={isLocked ? `Completa los pasos anteriores para desbloquear ${step.label}` : step.label}
                 className={cn(
-                  'flex items-center justify-center size-7 rounded-full border text-[10px] font-bold shrink-0 transition-all',
+                  'flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold shrink-0 transition-all whitespace-nowrap',
                   isCompleted && !isActive && 'border-brand bg-brand text-white',
                   isActive && 'border-brand bg-card text-brand ring-2 ring-brand/20',
                   isLocked && 'border-border bg-muted/20 text-muted-foreground/30 cursor-not-allowed',
@@ -62,12 +62,13 @@ export function BuilderProgress() {
                 )}
               >
                 {isCompleted && !isActive ? (
-                  <Check className="size-3" strokeWidth={3} />
+                  <Check className="size-2.5" strokeWidth={3} />
                 ) : isLocked ? (
                   <Lock className="size-2.5" />
                 ) : (
-                  step.id
+                  <span className="size-3.5 flex items-center justify-center text-[9px] font-bold">{step.id}</span>
                 )}
+                <span className="max-w-[52px] truncate">{step.label}</span>
               </button>
             )
           })}

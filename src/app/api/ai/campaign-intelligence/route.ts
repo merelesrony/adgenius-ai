@@ -20,12 +20,11 @@ export async function POST(req: NextRequest) {
 
     const { campaignId } = parsed.data
 
-    const { data: campaignRaw, error: campError } = await supabase
-      .from('campaigns')
-      .select('*')
-      .eq('id', campaignId)
-      .eq('user_id', user.id)
-      .maybeSingle()
+    // Load campaign + linked product (for Visual DNA) in parallel
+    const [{ data: campaignRaw, error: campError }, { data: businessRaw }] = await Promise.all([
+      supabase.from('campaigns').select('*').eq('id', campaignId).eq('user_id', user.id).maybeSingle(),
+      supabase.from('businesses').select('country').eq('user_id', user.id).maybeSingle(),
+    ])
 
     if (campError || !campaignRaw) {
       return NextResponse.json({ error: 'Campaña no encontrada' }, { status: 404 })
@@ -36,9 +35,31 @@ export async function POST(req: NextRequest) {
     const interests = campaign.target_interests as string[] | null
     const platforms = campaign.platforms as string[] | null
     const brandKit = campaign.brand_kit as object | null
+    const aiStrategy = campaign.ai_strategy as { audience?: { interests?: string[] } } | null
+
+    // Prefer target interests from campaign, fall back to strategy interests
+    const effectiveInterests: string[] = Array.isArray(interests) && interests.length > 0
+      ? interests
+      : (aiStrategy?.audience?.interests ?? [])
+
+    // Determine country: campaign targeting > user's business country
+    const effectiveCountry = campaign.target_country
+      ?? (businessRaw as { country?: string } | null)?.country
+      ?? 'US'
+
+    // Check for visual DNA via product link
+    let hasVisualDNA = false
+    if (campaign.product_id) {
+      const { data: prod } = await supabase
+        .from('products')
+        .select('visual_dna')
+        .eq('id', campaign.product_id)
+        .maybeSingle()
+      hasVisualDNA = !!(prod?.visual_dna)
+    }
 
     const result = await analyzeCampaignIntelligence({
-      productName: campaign.product_name ?? 'Producto',
+      productName: campaign.product_name ?? 'Producto sin nombre',
       productDescription: campaign.product_description ?? null,
       productCategory: campaign.product_category ?? null,
       productPrice: campaign.product_price ?? null,
@@ -46,22 +67,22 @@ export async function POST(req: NextRequest) {
       objective: campaign.objective ?? 'sales',
       dailyBudget: campaign.daily_budget ?? null,
       budgetCurrency: campaign.currency ?? campaign.product_currency ?? 'USD',
-      country: campaign.target_country ?? 'AR',
+      country: effectiveCountry,
       city: campaign.target_city ?? null,
       targetAgeMin: campaign.target_age_min ?? null,
       targetAgeMax: campaign.target_age_max ?? null,
       targetGender: campaign.target_gender ?? 'all',
-      targetInterests: Array.isArray(interests) ? interests : [],
+      targetInterests: effectiveInterests,
       platforms: Array.isArray(platforms) ? platforms : [],
       aiCopy,
       hasCreative: !!(campaign.flyer_url),
-      hasVisualDNA: false,
+      hasVisualDNA,
       hasBrandKit: !!brandKit,
       currentScore: campaign.campaign_score ?? null,
     })
 
-    // Save review to history
-    await supabase.from('campaign_ai_reviews').insert({
+    // Save review to history — non-blocking (migration may not be applied yet)
+    supabase.from('campaign_ai_reviews').insert({
       campaign_id: campaignId,
       user_id: user.id,
       score: result.overallScore,
@@ -73,10 +94,13 @@ export async function POST(req: NextRequest) {
       coach_advice: result.coachAdvice,
       quick_wins: result.quickWins,
       summary: result.summary,
+    }).then(({ error }: { error: { message: string } | null }) => {
+      if (error) console.warn('[campaign-intelligence] history insert failed (migration 014 may not be applied):', error.message)
     })
 
-    // Track AI usage
-    await supabase.from('ai_usage').insert({ user_id: user.id, type: 'copy', tokens_used: null })
+    // Track AI usage — non-blocking
+    supabase.from('ai_usage').insert({ user_id: user.id, type: 'copy', tokens_used: null })
+      .then(() => { /* fire and forget */ })
 
     return NextResponse.json(result)
   } catch (err) {

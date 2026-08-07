@@ -890,7 +890,7 @@ export function CampaignReview({ campaign, creativeUrl, creatives = [], optimiza
           )}
         >
           <Brain className="size-3.5" />
-          Campaign Intelligence
+          ✨ Optimización IA
         </button>
       </div>
 

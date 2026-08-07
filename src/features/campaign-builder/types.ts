@@ -147,6 +147,7 @@ export type BuilderAction =
   | { type: 'SET_CITY'; payload: string }
   | { type: 'SET_RADIUS'; payload: string }
   | { type: 'TOGGLE_PLATFORM'; payload: MetaPlatform }
+  | { type: 'SET_PLATFORMS'; payload: MetaPlatform[] }
   | { type: 'SET_AI_STRATEGY'; payload: CampaignStrategy }
   | { type: 'SET_GENERATED_CREATIVES'; payload: GeneratedCreative[] }
   | { type: 'SET_BRAND_KIT'; payload: BrandKit }

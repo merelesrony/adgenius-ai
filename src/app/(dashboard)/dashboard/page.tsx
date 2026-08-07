@@ -5,6 +5,7 @@ import {
   Megaphone, Box, Sparkles, TrendingUp,
   ArrowRight, Star, CheckCircle2, FileEdit, Activity,
   ChevronRight, Wand2, Users, Type, Palette, MonitorSmartphone,
+  Clock,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import type { Database } from '@/types/database'
@@ -49,6 +50,7 @@ export default async function DashboardPage() {
     { data: subRaw },
     { data: recentRaw },
     { count: aiUsedCount },
+    { data: draftSessionRaw },
   ] = await Promise.all([
     supabase.from('campaigns').select('*', { count: 'exact', head: true }).eq('user_id', user.id),
     supabase
@@ -77,10 +79,19 @@ export default async function DashboardPage() {
         'created_at',
         new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
       ),
+    supabase
+      .from('campaign_builder_sessions')
+      .select('id, updated_at')
+      .eq('user_id', user.id)
+      .in('status', ['draft', 'paused'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ])
 
   const { data: campaignStats } = await callRpc(supabase, 'get_campaign_stats', statsArgs)
 
+  const draftSession = draftSessionRaw as { id: string; updated_at: string } | null
   const subscription = subRaw as SubRow | null
   const recentCampaigns = recentRaw as CampaignRow[] | null
   const plan = subscription?.plan ?? null
@@ -122,6 +133,33 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </AnimatedSection>
+
+      {/* In-progress builder session banner */}
+      {draftSession && (
+        <AnimatedSection delay={0.01}>
+          <div className="rounded-2xl border border-amber-400/40 bg-amber-50/70 dark:bg-amber-900/15 p-4 flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex items-center gap-3 flex-1 min-w-0">
+              <div className="flex items-center justify-center size-9 rounded-xl bg-amber-100 dark:bg-amber-900/30 shrink-0">
+                <Clock className="size-4 text-amber-600 dark:text-amber-400" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                  Tienes una campaña en progreso
+                </p>
+                <p className="text-xs text-amber-700 dark:text-amber-400">
+                  Tu borrador está guardado — puedes continuar donde lo dejaste
+                </p>
+              </div>
+            </div>
+            <Link href="/campaign-builder" className="shrink-0">
+              <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-white gap-1.5 border-0 w-full sm:w-auto">
+                <ArrowRight className="size-3.5" />
+                Continuar campaña
+              </Button>
+            </Link>
+          </div>
+        </AnimatedSection>
+      )}
 
       {/* Hero CTA — AI campaign builder */}
       <AnimatedSection delay={0.02}>

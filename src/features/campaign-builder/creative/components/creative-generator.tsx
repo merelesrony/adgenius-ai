@@ -43,6 +43,7 @@ export function CreativeGenerator() {
     hasCached ? (generatedCreatives.find(c => c.id === state.selectedCreativeId) ?? generatedCreatives[0]) : null,
   )
   const [showPreview, setShowPreview] = useState(false)
+  const [activeFormat, setActiveFormat] = useState<'1:1' | '9:16' | '4:5' | '1.91:1'>('1:1')
   const hasStarted = useRef(hasCached) // skip generation if cache exists
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([])
   const abortRef = useRef<AbortController | null>(null)
@@ -350,7 +351,7 @@ export function CreativeGenerator() {
     dispatch({ type: 'SET_SELECTED_CREATIVE', payload: id })
     const c = generatedCreatives.find(cr => cr.id === id)
     if (c) setPreviewCreative(c)
-    dispatch({ type: 'NEXT_STEP' })
+    // Selection is confirmed — user advances via the "Continuar" nav button
   }
 
   // ── Rendering ──────────────────────────────────────────────────────────────
@@ -523,8 +524,46 @@ export function CreativeGenerator() {
             </span>
           </button>
           {showPreview && (
-            <div className="p-4">
-              <AdPreview creative={previewCreative} />
+            <div className="p-4 space-y-4">
+              {/* Format selector */}
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                <span className="text-[10px] text-muted-foreground shrink-0 font-medium">Formato:</span>
+                {(
+                  [
+                    { id: '1:1', label: 'Instagram Feed', icon: '□' },
+                    { id: '9:16', label: 'Story / WhatsApp', icon: '▯' },
+                    { id: '4:5', label: 'Facebook Feed', icon: '▭' },
+                    { id: '1.91:1', label: 'Landscape', icon: '▬' },
+                  ] as const
+                ).map(({ id, label, icon }) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setActiveFormat(id)}
+                    className={cn(
+                      'flex items-center gap-1 text-[10px] font-semibold px-2.5 py-1 rounded-full border shrink-0 transition-all',
+                      activeFormat === id
+                        ? 'border-brand bg-brand/10 text-brand'
+                        : 'border-border bg-muted/30 text-muted-foreground hover:border-brand/40',
+                    )}
+                  >
+                    <span className="text-[8px]">{icon}</span>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              {/* Preview with aspect ratio constraint */}
+              <div
+                className="w-full mx-auto overflow-hidden rounded-xl"
+                style={{
+                  maxWidth: activeFormat === '9:16' ? '280px' : activeFormat === '1.91:1' ? '100%' : '360px',
+                  aspectRatio: activeFormat,
+                }}
+              >
+                <div className="w-full h-full overflow-hidden">
+                  <AdPreview creative={previewCreative} />
+                </div>
+              </div>
             </div>
           )}
         </div>

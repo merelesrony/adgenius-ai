@@ -22,3 +22,20 @@ export const DEFAULT_CURRENCY = 'USD'
 export function getCurrencyConfig(currency: string): CurrencyConfig {
   return CURRENCY_CONFIGS[currency] ?? CURRENCY_CONFIGS[DEFAULT_CURRENCY]
 }
+
+// Maps a country code (ISO 3166-1 alpha-2) to its primary currency.
+const COUNTRY_CURRENCY: Record<string, string> = {
+  PY: 'PYG', AR: 'ARS', BR: 'BRL',
+  ES: 'EUR', DE: 'EUR', FR: 'EUR', IT: 'EUR', PT: 'EUR',
+  CL: 'CLP', CO: 'COP', MX: 'MXN',
+  PE: 'PEN', UY: 'USD', BO: 'BOB',
+  VE: 'USD', EC: 'USD', PA: 'USD',
+  US: 'USD', CA: 'CAD', GB: 'GBP',
+}
+
+export function getCurrencyForCountry(countryCode: string): string {
+  const currency = COUNTRY_CURRENCY[countryCode?.toUpperCase()]
+  if (!currency) return DEFAULT_CURRENCY
+  // Only return currencies we support; fall back to USD for unsupported ones
+  return CURRENCY_CONFIGS[currency] ? currency : DEFAULT_CURRENCY
+}

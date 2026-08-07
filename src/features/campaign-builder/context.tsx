@@ -138,6 +138,8 @@ function builderReducer(state: BuilderState, action: BuilderAction): BuilderStat
         hasPendingRegeneration: state.aiStrategy !== null,
       }
     }
+    case 'SET_PLATFORMS':
+      return { ...state, platforms: action.payload as MetaPlatform[] }
     case 'SET_AI_STRATEGY':
       return { ...state, aiStrategy: action.payload as CampaignStrategy, hasPendingRegeneration: false }
     case 'SET_GENERATED_CREATIVES':

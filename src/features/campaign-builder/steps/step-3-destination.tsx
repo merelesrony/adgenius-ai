@@ -3,6 +3,7 @@
 import { MapPin, Globe } from 'lucide-react'
 import { useCampaignBuilder } from '../context'
 import { COUNTRIES } from '@/constants/options'
+import { getCurrencyForCountry } from '@/lib/currency/config'
 
 export function Step3Destination() {
   const { state, dispatch } = useCampaignBuilder()
@@ -27,7 +28,13 @@ export function Step3Destination() {
           </label>
           <select
             value={country}
-            onChange={(e) => dispatch({ type: 'SET_COUNTRY', payload: e.target.value })}
+            onChange={(e) => {
+              const newCountry = e.target.value
+              dispatch({ type: 'SET_COUNTRY', payload: newCountry })
+              if (newCountry) {
+                dispatch({ type: 'SET_CURRENCY', payload: getCurrencyForCountry(newCountry) })
+              }
+            }}
             className="w-full py-2.5 px-3 text-sm rounded-lg border border-border bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
           >
             <option value="">Selecciona un país</option>
