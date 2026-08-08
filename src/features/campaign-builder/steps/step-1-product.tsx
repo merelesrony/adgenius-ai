@@ -37,7 +37,7 @@ const IMAGE_ANALYSIS_STEPS = [
   'Preparando tu campaña',
 ] as const
 
-type ImageIngestionPhase = 'upload' | 'analyzing' | 'confirm' | 'saving'
+type ImageIngestionPhase = 'upload' | 'describe' | 'analyzing' | 'confirm' | 'saving'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -149,6 +149,7 @@ function ProductConfirmForm({
   onConfirm,
   onBack,
   saveError,
+  userDescription,
 }: {
   product: ProductFromImageResult
   imageUrl: string
@@ -157,9 +158,11 @@ function ProductConfirmForm({
   onConfirm: (edited: ProductFromImageResult) => void
   onBack: () => void
   saveError: string | null
+  userDescription?: string
 }) {
   const [name, setName] = useState(initial.name)
-  const [description, setDescription] = useState(initial.description)
+  // User description is always authoritative — pre-fill with it, not the AI's version
+  const [description, setDescription] = useState(userDescription || initial.description)
   const [brand, setBrand] = useState(initial.brand ?? '')
   const [price, setPrice] = useState(initial.price !== null ? String(initial.price) : '')
   const [currency, setCurrency] = useState(initial.currency)
@@ -234,12 +237,24 @@ function ProductConfirmForm({
           </div>
 
           <div>
-            <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Descripción</label>
+            <div className="flex items-center gap-2 mb-1">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Descripción</label>
+              {userDescription && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-success/10 text-success border border-success/20 uppercase tracking-wide">
+                  Tu información · autoritativa
+                </span>
+              )}
+            </div>
+            {userDescription && (
+              <p className="text-[10px] text-muted-foreground mb-1">
+                La IA conserva tu descripción exacta. Puedes editarla si lo deseas.
+              </p>
+            )}
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               rows={3}
-              className="mt-1 w-full rounded-lg border border-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              className="w-full rounded-lg border border-border bg-background text-foreground text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-ring resize-none"
             />
           </div>
 
@@ -334,6 +349,7 @@ function ImageIngestionFlow({
 }) {
   const [phase, setPhase] = useState<ImageIngestionPhase>('upload')
   const [imageUrl, setImageUrl] = useState<string | null>(null)
+  const [userDescription, setUserDescription] = useState('')
   const [isUploading, setIsUploading] = useState(false)
   const [uploadError, setUploadError] = useState<string | null>(null)
   const [analysisStep, setAnalysisStep] = useState(0)
@@ -402,15 +418,16 @@ function ImageIngestionFlow({
     try {
       const url = await uploadToStorage(file)
       setImageUrl(url)
+      setUserDescription('')
       setIsUploading(false)
-      void startAnalysis(url)
+      setPhase('describe')
     } catch (err) {
       setUploadError(err instanceof Error ? err.message : 'Error subiendo imagen')
       setIsUploading(false)
     }
   }
 
-  async function startAnalysis(url: string) {
+  async function startAnalysis(url: string, description?: string) {
     setPhase('analyzing')
     setAnalysisError(null)
     setAnalysisStep(0)
@@ -423,7 +440,10 @@ function ImageIngestionFlow({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         signal: controller.signal,
-        body: JSON.stringify({ imageUrl: url }),
+        body: JSON.stringify({
+          imageUrl: url,
+          ...(description ? { description } : {}),
+        }),
       })
       const data = await res.json() as {
         product?: ProductFromImageResult
@@ -433,13 +453,12 @@ function ImageIngestionFlow({
       if (!res.ok) throw new Error(data.error ?? 'Error analizando imagen')
       setProductData(data.product ?? null)
       setVisualDNA(data.dna ?? null)
-      // Let animation finish before showing the form
       setTimeout(() => setPhase('confirm'), 700)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       const msg = err instanceof Error ? err.message : 'Error analizando imagen'
       setAnalysisError(msg)
-      setPhase('upload')
+      setPhase('describe')
     }
   }
 
@@ -464,7 +483,12 @@ function ImageIngestionFlow({
       return
     }
 
-    onProductAccepted({ ...result.product, image: imageUrl })
+    const originalUserDesc = userDescription.trim() || null
+    onProductAccepted({
+      ...result.product,
+      image: imageUrl,
+      userProvidedDescription: originalUserDesc,
+    })
   }
 
   // ── UPLOAD ───────────────────────────────────────────────────────────────────
@@ -578,6 +602,101 @@ function ImageIngestionFlow({
     )
   }
 
+  // ── DESCRIBE ─────────────────────────────────────────────────────────────────
+  if (phase === 'describe') {
+    return (
+      <div className="space-y-4">
+        {/* Image preview + change */}
+        {imageUrl && (
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/30">
+            <div className="size-16 rounded-lg overflow-hidden border border-border shrink-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={imageUrl} alt="Producto" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-foreground">Imagen lista</p>
+              <p className="text-xs text-muted-foreground mt-0.5">Puedes agregar más contexto antes de analizar</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => { setImageUrl(null); setPhase('upload') }}
+              className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1 shrink-0"
+            >
+              <X className="size-3" />
+              Cambiar
+            </button>
+          </div>
+        )}
+
+        {/* Optional description */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-semibold text-foreground block">
+            ¿Quieres agregar información sobre tu producto?
+            <span className="text-muted-foreground font-normal ml-1">(opcional)</span>
+          </label>
+          <textarea
+            value={userDescription}
+            onChange={(e) => setUserDescription(e.target.value)}
+            placeholder="Describe tu producto, características, precio, promoción o cualquier información que quieras que la IA conozca..."
+            rows={3}
+            className="w-full rounded-lg border border-border bg-background text-foreground text-sm px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-ring resize-none placeholder:text-muted-foreground/70"
+          />
+          <p className="text-[11px] text-muted-foreground">
+            Ejemplo: &ldquo;Amortiguador Toyota Corolla 2014-2018. Precio Gs. 450.000. Entrega inmediata.&rdquo;
+          </p>
+        </div>
+
+        {/* Analysis error */}
+        {analysisError && (
+          <div className="flex items-start gap-2 rounded-lg bg-destructive/10 border border-destructive/20 px-3 py-2.5">
+            <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+            <p className="text-xs text-destructive">{analysisError}</p>
+          </div>
+        )}
+
+        {/* Two action options */}
+        <div className="space-y-2">
+          <p className="text-xs font-semibold text-foreground">¿Cómo quieres completar la información?</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => { if (imageUrl) void startAnalysis(imageUrl, userDescription.trim() || undefined) }}
+              disabled={!userDescription.trim()}
+              className={cn(
+                'flex flex-col items-start gap-2 rounded-xl border-2 p-4 text-left transition-all duration-200',
+                userDescription.trim()
+                  ? 'border-brand/40 bg-brand/5 hover:border-brand hover:bg-brand/8 cursor-pointer'
+                  : 'border-border bg-muted/20 opacity-50 cursor-not-allowed',
+              )}
+            >
+              <span className="text-xl leading-none">✍️</span>
+              <div>
+                <span className="text-sm font-semibold text-foreground block">Yo describo mi producto</span>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  La IA utilizará mi descripción y la imagen para completar la información.
+                </p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => { if (imageUrl) void startAnalysis(imageUrl) }}
+              className="flex flex-col items-start gap-2 rounded-xl border-2 border-purple-500/25 bg-purple-500/3 hover:border-purple-500/60 hover:bg-purple-500/8 p-4 text-left transition-all duration-200 cursor-pointer"
+            >
+              <span className="text-xl leading-none">🤖</span>
+              <div>
+                <span className="text-sm font-semibold text-foreground block">Analizar automáticamente</span>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                  La IA analizará la imagen y completará la información automáticamente.
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // ── ANALYZING ────────────────────────────────────────────────────────────────
   if (phase === 'analyzing') {
     return (
@@ -667,8 +786,9 @@ function ImageIngestionFlow({
       productImageMode={productImageMode}
       onProductImageModeChange={onProductImageModeChange}
       onConfirm={handleConfirm}
-      onBack={() => { setPhase('upload'); setProductData(null); setVisualDNA(null); setSaveError(null) }}
+      onBack={() => { setPhase('describe'); setProductData(null); setVisualDNA(null); setSaveError(null) }}
       saveError={saveError}
+      userDescription={userDescription.trim() || undefined}
     />
   )
 }
@@ -768,7 +888,11 @@ function AIProductCreator({
       setPhase('review')
       return
     }
-    onProductAccepted(result.product)
+    // The user typed this description — it is authoritative for copy generation
+    onProductAccepted({
+      ...result.product,
+      userProvidedDescription: userDescription.trim() || null,
+    })
   }
 
   if (phase === 'form') {

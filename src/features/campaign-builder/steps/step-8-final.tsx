@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import {
   CheckCircle, Package, DollarSign, MapPin, Target,
   Sparkles, RotateCcw, ExternalLink, Trophy, Rocket,
-  AlertCircle, Loader2,
+  AlertCircle, Loader2, Link2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -211,28 +211,8 @@ export function Step8Final() {
         </div>
       </div>
 
-      {/* Notice */}
-      <div className="rounded-xl border border-amber-300/40 bg-amber-50/50 dark:bg-amber-900/10 p-4">
-        <div className="flex items-start gap-3">
-          <ExternalLink className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="space-y-1">
-            <p className="text-sm font-semibold text-foreground">Implementación manual en Meta</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Descarga o copia el creativo seleccionado y usa los datos de esta campaña
-              para configurarla en Meta Ads Manager.
-            </p>
-            <a
-              href="https://www.facebook.com/adsmanager"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 text-xs text-brand hover:underline mt-1"
-            >
-              Abrir Meta Ads Manager
-              <ExternalLink className="size-3" />
-            </a>
-          </div>
-        </div>
-      </div>
+      {/* Meta Ads card */}
+      <MetaAdsCard />
 
       {/* Error */}
       {createError && (
@@ -280,6 +260,52 @@ export function Step8Final() {
           <RotateCcw className="size-4" />
           Empezar de nuevo
         </Button>
+      </div>
+    </div>
+  )
+}
+
+function MetaAdsCard() {
+  return (
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-muted/30">
+        <div className="size-5 rounded bg-[#1877F2] flex items-center justify-center shrink-0">
+          <span className="text-white text-[10px] font-bold leading-none">f</span>
+        </div>
+        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">
+          Meta Ads
+        </span>
+      </div>
+      <div className="p-4 space-y-3">
+        <div className="flex items-start gap-3">
+          <ExternalLink className="size-4 text-muted-foreground shrink-0 mt-0.5" />
+          <div className="space-y-1 flex-1">
+            <p className="text-sm font-medium text-foreground">Publicación manual en Meta</p>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              Descarga el creativo y usa los datos de campaña para configurarla en Meta Ads Manager.
+              Pronto podrás publicar directamente desde AdGenius.
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 pt-1">
+          <a
+            href="https://www.facebook.com/adsmanager"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
+          >
+            Abrir Meta Ads Manager
+            <ExternalLink className="size-3" />
+          </a>
+          <span className="text-muted-foreground/30">·</span>
+          <a
+            href="/settings"
+            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Link2 className="size-3" />
+            Configurar conexión
+          </a>
+        </div>
       </div>
     </div>
   )

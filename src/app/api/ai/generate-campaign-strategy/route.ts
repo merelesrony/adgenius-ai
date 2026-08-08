@@ -6,6 +6,7 @@ import { generateCampaignStrategy } from '@/lib/ai/AIManager'
 const schema = z.object({
   productName: z.string().min(1).max(200),
   productDescription: z.string().nullable().optional(),
+  userProductDescription: z.string().nullable().optional(),
   productCategory: z.string().nullable().optional(),
   productPrice: z.number().nullable().optional(),
   productCurrency: z.string().nullable().optional(),
@@ -44,6 +45,7 @@ export async function POST(req: NextRequest) {
     const result = await generateCampaignStrategy({
       productName: d.productName,
       productDescription: d.productDescription ?? null,
+      userProductDescription: d.userProductDescription ?? null,
       productCategory: d.productCategory ?? null,
       productPrice: d.productPrice ?? null,
       productCurrency: d.productCurrency ?? null,

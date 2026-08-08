@@ -3,16 +3,38 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { MetaConnectionCard } from '@/features/integrations/components/meta-connection-card'
+import { getMetaConnectionAction } from '@/features/integrations/actions'
+import { MetaConnectedToast } from './meta-connected-toast'
 
 export const metadata: Metadata = { title: 'Configuración' }
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ meta?: string; reason?: string }>
+}) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
 
+  const params = await searchParams
+  const metaStatus = params.meta
+  const metaErrorReason = params.reason
+
+  const [metaConnection, profileResult] = await Promise.all([
+    getMetaConnectionAction(),
+    supabase.from('profiles').select('currency').eq('id', user.id).maybeSingle(),
+  ])
+
+  const userCurrency = (profileResult.data as { currency?: string } | null)?.currency ?? 'USD'
+
   return (
     <div className="space-y-6 max-w-2xl mx-auto">
+      {metaStatus && (
+        <MetaConnectedToast status={metaStatus} reason={metaErrorReason} />
+      )}
+
       <div>
         <h1 className="text-xl font-semibold text-foreground">Configuración</h1>
         <p className="text-sm text-muted-foreground mt-0.5">Gestiona tu cuenta y preferencias</p>
@@ -45,23 +67,10 @@ export default async function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Integraciones</CardTitle>
-          <CardDescription>Conecta tus cuentas externas (disponible en Fase 4)</CardDescription>
+          <CardDescription>Conecta tus cuentas de publicidad</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex items-center justify-between py-3">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded bg-blue-600 flex items-center justify-center">
-                <span className="text-white text-xs font-bold">f</span>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-foreground">Meta Ads</p>
-                <p className="text-xs text-muted-foreground">Facebook & Instagram Ads</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" disabled>
-              Conectar
-            </Button>
-          </div>
+          <MetaConnectionCard connection={metaConnection} userCurrency={userCurrency} />
         </CardContent>
       </Card>
 

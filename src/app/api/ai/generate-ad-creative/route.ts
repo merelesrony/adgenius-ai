@@ -21,6 +21,7 @@ const schema = z.object({
   creativeStyle: z.string().default('Profesional'),
   creativeConcept: z.string().default('Producto como protagonista'),
   platforms: z.array(z.string()).default([]),
+  userProductDescription: z.string().nullable().optional(),
 })
 
 export async function POST(req: NextRequest) {
@@ -57,6 +58,7 @@ export async function POST(req: NextRequest) {
       creativeStyle: d.creativeStyle,
       creativeConcept: d.creativeConcept,
       platforms: d.platforms,
+      userProductDescription: d.userProductDescription ?? null,
     })
 
     await supabase.from('ai_usage').insert({ user_id: user.id, type: 'copy', tokens_used: null })

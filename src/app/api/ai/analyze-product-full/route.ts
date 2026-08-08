@@ -29,12 +29,25 @@ export async function POST(req: NextRequest) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-    const body = await req.json() as { imageUrl?: string }
+    const body = await req.json() as { imageUrl?: string; description?: string }
     if (!body.imageUrl) {
       return NextResponse.json({ error: 'imageUrl requerida' }, { status: 400 })
     }
 
-    console.log('[analyze-product-full] Analyzing image for user:', user.id)
+    const userDescription = body.description?.trim() ?? null
+
+    console.log('[analyze-product-full] Analyzing image for user:', user.id, userDescription ? '+ seller description' : '')
+
+    const systemContext = userDescription
+      ? `The seller provided this description about their product: "${userDescription}"
+
+CRITICAL RULES when seller description is present:
+- PRESERVE any explicit product name, price, model, or specific data from the seller's text — do NOT contradict them
+- If the seller states a price (e.g. "Gs. 450.000"), extract it as the price value and infer the currency
+- Use the image ONLY to enrich what the seller didn't mention: visual DNA, colors, materials, category, brand (if visible on packaging)
+- The "name" field should reflect the seller's product name if stated, otherwise infer from image
+- The "description" field should incorporate the seller's key points and expand them professionally in Spanish`
+      : `Analyze this product image comprehensively and extract all commercial and visual data.`
 
     const message = await client.messages.create({
       model: 'claude-haiku-4-5-20251001',
@@ -48,15 +61,15 @@ export async function POST(req: NextRequest) {
           },
           {
             type: 'text',
-            text: `You are an expert product analyst and advertising strategist. Analyze this product image and return a comprehensive JSON with both commercial product data and visual DNA for advertising campaigns.
+            text: `You are an expert product analyst and advertising strategist. ${systemContext}
 
 VALID CATEGORIES (use exact key): electronics, clothing, beauty, food, sports, home, toys, books, automotive, health, other
 
 Return ONLY this exact JSON (no markdown fences, no explanation, no text before or after):
 {
   "product": {
-    "name": "commercial product name (3-6 words, professional quality, in the product's original language if brand is visible)",
-    "description": "2-3 sentence professional description in Spanish highlighting key benefits and selling points. Make it compelling for advertising.",
+    "name": "commercial product name (3-6 words, professional quality; use seller's stated name if available)",
+    "description": "2-3 sentence professional description in Spanish highlighting key benefits and selling points. Incorporate seller's info if provided. Make it compelling for advertising.",
     "category": "one exact key from valid categories list",
     "categoryLabel": "Spanish display name for this category",
     "brand": "brand name if clearly visible on product or packaging, null otherwise",
@@ -115,7 +128,8 @@ Return ONLY this exact JSON (no markdown fences, no explanation, no text before 
 
     const product: ProductFromImageResult = {
       name:             parsed.product?.name             ?? 'Producto detectado',
-      description:      parsed.product?.description      ?? '',
+      // If the seller wrote their own description, it is authoritative — never overwrite it
+      description:      userDescription ?? parsed.product?.description ?? '',
       category,
       categoryLabel:    parsed.product?.categoryLabel    ?? 'General',
       brand:            parsed.product?.brand            ?? null,

@@ -18,6 +18,8 @@ export interface SelectedProduct {
   price: number | null
   currency: string | null
   image: string | null
+  /** Set when the user explicitly wrote a description — this is the source of truth for copy generation */
+  userProvidedDescription?: string | null
 }
 
 export interface AudienceStrategy {

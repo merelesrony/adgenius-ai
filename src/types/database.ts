@@ -831,6 +831,80 @@ export type Database = {
           },
         ]
       }
+      meta_connections: {
+        Row: {
+          id: string
+          user_id: string
+          meta_user_id: string
+          meta_user_name: string | null
+          access_token_enc: string
+          token_type: string
+          expires_at: string | null
+          scopes: string[]
+          selected_ad_account_id: string | null
+          selected_ad_account_name: string | null
+          selected_page_id: string | null
+          selected_page_name: string | null
+          selected_instagram_id: string | null
+          business_portfolio: Json | null
+          ad_accounts: Json
+          pages: Json
+          instagram_accounts: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          meta_user_id: string
+          meta_user_name?: string | null
+          access_token_enc: string
+          token_type?: string
+          expires_at?: string | null
+          scopes?: string[]
+          selected_ad_account_id?: string | null
+          selected_ad_account_name?: string | null
+          selected_page_id?: string | null
+          selected_page_name?: string | null
+          selected_instagram_id?: string | null
+          business_portfolio?: Json | null
+          ad_accounts?: Json
+          pages?: Json
+          instagram_accounts?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          meta_user_id?: string
+          meta_user_name?: string | null
+          access_token_enc?: string
+          token_type?: string
+          expires_at?: string | null
+          scopes?: string[]
+          selected_ad_account_id?: string | null
+          selected_ad_account_name?: string | null
+          selected_page_id?: string | null
+          selected_page_name?: string | null
+          selected_instagram_id?: string | null
+          business_portfolio?: Json | null
+          ad_accounts?: Json
+          pages?: Json
+          instagram_accounts?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meta_connections_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: Record<string, never>
     Functions: {

@@ -74,6 +74,9 @@ export function Step5Working() {
         productDescription: usesSelectedProduct
           ? (selectedProduct?.description ?? productDescription)
           : productDescription,
+        userProductDescription: usesSelectedProduct
+          ? (selectedProduct?.userProvidedDescription ?? null)
+          : null,
         productCategory: usesSelectedProduct
           ? (selectedProduct?.category ?? null)
           : null,

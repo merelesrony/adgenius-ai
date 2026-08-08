@@ -499,6 +499,7 @@ export interface CampaignStrategy {
 export async function generateCampaignStrategy(input: {
   productName: string
   productDescription: string | null
+  userProductDescription?: string | null
   productCategory: string | null
   productPrice: number | null
   productCurrency: string | null
@@ -510,8 +511,8 @@ export async function generateCampaignStrategy(input: {
   platforms: string[]
 }): Promise<CampaignStrategy> {
   const {
-    productName, productDescription, productCategory,
-    productPrice, productCurrency,
+    productName, productDescription, userProductDescription,
+    productCategory, productPrice, productCurrency,
     dailyBudget, budgetCurrency,
     country, city, radius, platforms,
   } = input
@@ -521,9 +522,13 @@ export async function generateCampaignStrategy(input: {
   const platformStr = platforms.length > 0 ? platforms.join(', ') : 'Facebook, Instagram'
   const locationStr = city ? `${city}, ${country} (radio ${radius} km)` : `${country} (radio ${radius} km)`
 
+  const sellerBlock = userProductDescription
+    ? `⚠️ DESCRIPCIÓN ORIGINAL DEL VENDEDOR (AUTORITATIVA):\n"${userProductDescription}"\nNo modificar estos datos. Úsalos para construir la estrategia.\n\n`
+    : ''
+
   const prompt = `Eres experto en Meta Ads para mercados hispanohablantes. Genera una estrategia completa de campaña publicitaria.
 
-PRODUCTO:
+${sellerBlock}PRODUCTO:
 - Nombre: ${productName}
 - Descripción: ${productDescription ?? 'No especificada'}
 - Categoría: ${productCategory ?? 'General'}
@@ -686,6 +691,7 @@ export async function generateAdCreative(input: {
   creativeStyle: string
   creativeConcept: string
   platforms: string[]
+  userProductDescription?: string | null
 }): Promise<AdCreativeAIResult> {
   const {
     productName, productDescription, productCategory,
@@ -694,6 +700,7 @@ export async function generateAdCreative(input: {
     objective, objectiveLabel, recommendedCTA,
     dailyBudget, budgetCurrency,
     creativeStyle, creativeConcept, platforms,
+    userProductDescription,
   } = input
 
   const priceStr = productPrice
@@ -705,9 +712,16 @@ export async function generateAdCreative(input: {
   const budgetStr = getBudgetContextForAI(dailyBudget, budgetCurrency)
   const platformStr = platforms.length > 0 ? platforms.join(', ') : 'Facebook, Instagram'
 
+  const authorityBlock = userProductDescription
+    ? `⚠️ DESCRIPCIÓN ORIGINAL DEL VENDEDOR (FUENTE DE VERDAD):\n"${userProductDescription}"\n` +
+      `REGLA CRÍTICA: esta descripción es autoritativa. No la modifiques, resumir, ni contradigas. ` +
+      `Úsala tal cual en el copy. Puedes añadir elementos creativos, pero los datos explícitos (precio, modelo, compatibilidad, promoción) deben respetarse exactamente.\n\n`
+    : ''
+
   const prompt =
     `Eres Senior Creative Director de una agencia de publicidad digital. ` +
     `Genera 3 variantes de creativos publicitarios profesionales para Meta Ads.\n\n` +
+    authorityBlock +
     `PRODUCTO:\n- Nombre: ${productName}\n- Descripción: ${productDescription ?? 'No especificada'}\n` +
     `- Categoría: ${productCategory ?? 'General'}\n- Precio: ${priceStr}\n\n` +
     `CAMPAÑA:\n- Objetivo: ${objectiveLabel} (${objective})\n- CTA recomendado: ${recommendedCTA}\n` +

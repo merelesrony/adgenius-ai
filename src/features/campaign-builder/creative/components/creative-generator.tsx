@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef } from 'react'
-import { Palette, Sparkles, AlertCircle, RefreshCw, Eye, EyeOff, XCircle, X } from 'lucide-react'
+import { Palette, Sparkles, AlertCircle, RefreshCw, Eye, EyeOff, XCircle, X, CheckCircle, ArrowRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCampaignBuilder } from '../../context'
@@ -104,6 +104,8 @@ export function CreativeGenerator() {
         creativeStyle: aiStrategy?.creativeDirection.style ?? 'Profesional',
         creativeConcept: aiStrategy?.creativeDirection.concept ?? 'Producto como protagonista',
         platforms,
+        // Pass seller's original text so AI treats it as authoritative
+        userProductDescription: productFinal?.userProvidedDescription ?? null,
       }
 
       // ── BRANCH A: original_only ────────────────────────────────────────────────
@@ -568,6 +570,67 @@ export function CreativeGenerator() {
           )}
         </div>
       )}
+
+      {/* ── Continue bar ─────────────────────────────────────────────────────── */}
+      {/* Spacer so fixed bar doesn't cover content on mobile */}
+      <div className="h-20 sm:hidden" aria-hidden="true" />
+
+      {/* Fixed on mobile */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 sm:hidden bg-background/95 backdrop-blur-sm border-t border-border px-4 py-3" style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.75rem)' }}>
+        {state.selectedCreativeId ? (
+          <div className="flex items-center gap-3 max-w-lg mx-auto">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <CheckCircle className="size-4 text-success shrink-0" />
+              <span className="text-sm font-semibold text-foreground truncate">Creativo seleccionado</span>
+            </div>
+            <Button onClick={() => dispatch({ type: 'NEXT_STEP' })} className="gap-2 shrink-0">
+              Continuar
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 max-w-lg mx-auto">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="size-4 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+              <span className="text-sm text-muted-foreground truncate">Selecciona un creativo para continuar</span>
+            </div>
+            <Button disabled className="gap-2 shrink-0">
+              Continuar
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Inline on desktop */}
+      <div className="hidden sm:block rounded-2xl border border-border bg-card p-4">
+        {state.selectedCreativeId ? (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <CheckCircle className="size-5 text-success shrink-0" />
+              <div>
+                <p className="text-sm font-semibold text-foreground">Creativo seleccionado</p>
+                <p className="text-xs text-muted-foreground">Listo para continuar</p>
+              </div>
+            </div>
+            <Button onClick={() => dispatch({ type: 'NEXT_STEP' })} className="gap-2">
+              Continuar al paso siguiente
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-1 min-w-0">
+              <div className="size-5 rounded-full border-2 border-muted-foreground/30 shrink-0" />
+              <p className="text-sm text-muted-foreground">Selecciona un creativo arriba para continuar</p>
+            </div>
+            <Button disabled className="gap-2">
+              Continuar
+              <ArrowRight className="size-4" />
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
