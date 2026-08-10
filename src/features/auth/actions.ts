@@ -198,7 +198,7 @@ export async function updateProfileAction(
     phone: formData.get('phone'),
     website: formData.get('website'),
     category: formData.get('category'),
-    description: formData.get('description'),
+    description: formData.get('description') ?? undefined,
   }
 
   const parsed = updateProfileSchema.safeParse(raw)

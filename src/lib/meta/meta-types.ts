@@ -36,6 +36,28 @@ export interface MetaTokenResponse {
   expires_in?: number
 }
 
+export interface MetaLongLivedTokenResponse {
+  access_token: string
+  token_type: string
+  /** Seconds until the long-lived token expires (~60 days = ~5_184_000 s) */
+  expires_in?: number
+}
+
+/** Result of calling /debug_token on a user access token */
+export interface MetaTokenInspection {
+  isValid: boolean
+  appId?: string
+  userId?: string
+  /** Unix timestamp (seconds) when the token expires */
+  expiresAt?: number
+  /** Unix timestamp (seconds) when data access expires */
+  dataAccessExpiresAt?: number
+  scopes: string[]
+  error?: { code: number; message: string; subcode?: number }
+}
+
+export type MetaTokenStatus = 'valid' | 'expiring_soon' | 'expired' | 'unknown'
+
 export interface MetaConnection {
   id: string
   userId: string

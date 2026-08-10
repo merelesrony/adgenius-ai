@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   CheckCircle, Package, DollarSign, MapPin, Target,
-  Sparkles, RotateCcw, ExternalLink, Trophy, Rocket,
-  AlertCircle, Loader2, Link2,
+  Sparkles, RotateCcw, Trophy, Rocket,
+  AlertCircle, Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,8 @@ import { META_PLATFORMS } from '../constants'
 import { formatCurrency } from '@/lib/currency'
 import { COUNTRIES } from '@/constants/options'
 import { createCampaignFromBuilderAction } from '../actions'
+import { MetaPublishPreview } from '@/features/meta-publisher/components/meta-publish-preview'
+import { publishFromBuilderAction } from '@/features/meta-publisher/publish-from-builder-action'
 
 export function Step8Final() {
   const router = useRouter()
@@ -49,6 +51,28 @@ export function Step8Final() {
   if (!generatedCreatives.length) missingFields.push('creativos')
   if (!selectedCreativeId && !generatedCreatives.length) missingFields.push('creativo seleccionado')
   const canCreate = missingFields.length === 0
+
+  async function handlePublishConfirmed() {
+    return publishFromBuilderAction({
+      sessionId,
+      productMode,
+      selectedProduct,
+      productName,
+      productDescription,
+      productCategory,
+      dailyBudget,
+      currency,
+      totalBudget,
+      country,
+      city,
+      radius,
+      platforms,
+      aiStrategy,
+      generatedCreatives,
+      selectedCreativeId,
+      brandKit,
+    })
+  }
 
   async function handleCreate() {
     if (!canCreate || isCreating) return
@@ -211,8 +235,30 @@ export function Step8Final() {
         </div>
       </div>
 
-      {/* Meta Ads card */}
-      <MetaAdsCard />
+      {/* Meta publish preview + validation + publish */}
+      <MetaPublishPreview
+        productName={displayName}
+        aiStrategy={aiStrategy}
+        dailyBudget={dailyBudget}
+        totalBudget={totalBudget}
+        currency={currency}
+        country={country}
+        city={city}
+        platforms={platforms}
+        selectedCreative={selectedCreative ?? null}
+        preflightInput={{
+          objective: aiStrategy?.objectiveLabel ?? null,
+          dailyBudget: dailyBudget,
+          totalBudget: totalBudget,
+          targetCountry: country,
+          platforms: platforms,
+          hasCreative: !!selectedCreative,
+          hasCopy: !!aiStrategy,
+          hasAiStrategy: !!aiStrategy,
+        }}
+        canPublish={canCreate}
+        onPublishConfirmed={handlePublishConfirmed}
+      />
 
       {/* Error */}
       {createError && (
@@ -265,48 +311,3 @@ export function Step8Final() {
   )
 }
 
-function MetaAdsCard() {
-  return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      <div className="flex items-center gap-2.5 px-4 py-3 border-b border-border bg-muted/30">
-        <div className="size-5 rounded bg-[#1877F2] flex items-center justify-center shrink-0">
-          <span className="text-white text-[10px] font-bold leading-none">f</span>
-        </div>
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex-1">
-          Meta Ads
-        </span>
-      </div>
-      <div className="p-4 space-y-3">
-        <div className="flex items-start gap-3">
-          <ExternalLink className="size-4 text-muted-foreground shrink-0 mt-0.5" />
-          <div className="space-y-1 flex-1">
-            <p className="text-sm font-medium text-foreground">Publicación manual en Meta</p>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Descarga el creativo y usa los datos de campaña para configurarla en Meta Ads Manager.
-              Pronto podrás publicar directamente desde AdGenius.
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 pt-1">
-          <a
-            href="https://www.facebook.com/adsmanager"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs font-medium text-brand hover:underline"
-          >
-            Abrir Meta Ads Manager
-            <ExternalLink className="size-3" />
-          </a>
-          <span className="text-muted-foreground/30">·</span>
-          <a
-            href="/settings"
-            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <Link2 className="size-3" />
-            Configurar conexión
-          </a>
-        </div>
-      </div>
-    </div>
-  )
-}

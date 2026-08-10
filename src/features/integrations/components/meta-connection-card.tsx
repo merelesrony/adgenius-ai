@@ -1,10 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { CheckCircle, AlertCircle, Loader2, Link2Off, ExternalLink, ChevronDown } from 'lucide-react'
+import {
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle,
+  XCircle,
+  Loader2,
+  Link2Off,
+  ExternalLink,
+  ChevronDown,
+  RefreshCw,
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { getMetaTokenStatus } from '@/lib/meta/meta-publisher-utils'
 import { updateMetaSelectionAction } from '../actions'
 import type { MetaConnectionRow } from '../types'
 import type { MetaAdAccount, MetaPage, MetaInstagramAccount } from '@/lib/meta/meta-types'
@@ -40,6 +51,13 @@ export function MetaConnectionCard({ connection, userCurrency }: MetaConnectionC
     userCurrency &&
     selectedAdAccount?.currency &&
     selectedAdAccount.currency !== userCurrency
+
+  const tokenStatus = isConnected ? getMetaTokenStatus(connection.expires_at) : null
+
+  // Days remaining until expiry (only meaningful when expiring_soon)
+  const daysUntilExpiry = isConnected && connection.expires_at
+    ? Math.ceil((new Date(connection.expires_at).getTime() - Date.now()) / 86_400_000)
+    : null
 
   async function handleDisconnect() {
     setIsDisconnecting(true)
@@ -110,7 +128,7 @@ export function MetaConnectionCard({ connection, userCurrency }: MetaConnectionC
           <div>
             <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-foreground">Meta Ads</p>
-              <CheckCircle className="size-3.5 text-green-500" />
+              <TokenStatusIcon status={tokenStatus} />
             </div>
             <p className="text-xs text-muted-foreground">
               Conectado como <span className="font-medium text-foreground">{connection.meta_user_name}</span>
@@ -154,6 +172,55 @@ export function MetaConnectionCard({ connection, userCurrency }: MetaConnectionC
           )}
         </div>
       </div>
+
+      {/* Token status banners */}
+      {tokenStatus === 'expired' && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <XCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-destructive">Token expirado</p>
+              <p className="text-xs text-destructive/80 mt-0.5">
+                Tu conexión con Meta expiró. Reconecta tu cuenta para continuar publicando.
+              </p>
+            </div>
+          </div>
+          <a href="/api/meta/connect">
+            <Button variant="destructive" size="sm" className="gap-1.5 shrink-0">
+              <RefreshCw className="size-3.5" />
+              Reconectar Meta
+            </Button>
+          </a>
+        </div>
+      )}
+
+      {tokenStatus === 'expiring_soon' && daysUntilExpiry !== null && daysUntilExpiry > 0 && (
+        <div className="rounded-lg border border-amber-300/50 bg-amber-50/60 dark:bg-amber-900/10 p-3 flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                Conexión próxima a expirar
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-500 mt-0.5">
+                Tu token expira en {daysUntilExpiry} día{daysUntilExpiry !== 1 ? 's' : ''}.
+                Renueva antes de que expire para no interrumpir la publicación.
+                Los tokens de Meta duran aproximadamente 60 días.
+              </p>
+            </div>
+          </div>
+          <a href="/api/meta/connect">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 shrink-0 border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-600 dark:text-amber-400"
+            >
+              <RefreshCw className="size-3.5" />
+              Renovar conexión
+            </Button>
+          </a>
+        </div>
+      )}
 
       {/* Account selection */}
       {adAccounts.length > 0 && (
@@ -269,6 +336,16 @@ export function MetaConnectionCard({ connection, userCurrency }: MetaConnectionC
       )}
     </div>
   )
+}
+
+function TokenStatusIcon({ status }: { status: ReturnType<typeof getMetaTokenStatus> | null }) {
+  if (!status || status === 'valid' || status === 'unknown') {
+    return <CheckCircle className="size-3.5 text-green-500" />
+  }
+  if (status === 'expiring_soon') {
+    return <AlertTriangle className="size-3.5 text-amber-500" />
+  }
+  return <XCircle className="size-3.5 text-destructive" />
 }
 
 function MetaIcon() {

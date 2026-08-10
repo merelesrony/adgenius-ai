@@ -1,8 +1,7 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
-import { buildMetaOAuthUrl, generateOAuthState } from '@/lib/meta/meta-auth'
-import { META_OAUTH_STATE_COOKIE, META_OAUTH_STATE_TTL_SECONDS, META_OAUTH_SCOPES } from '@/lib/meta/meta-constants'
+import { buildMetaOAuthUrl, generateSignedState, getOAuthMode } from '@/lib/meta/meta-auth'
+import { META_OAUTH_SCOPES, META_CONFIG_ID } from '@/lib/meta/meta-constants'
 
 export async function GET() {
   try {
@@ -12,23 +11,18 @@ export async function GET() {
       return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
     }
 
-    const state = generateOAuthState()
+    // State is HMAC-signed with userId + timestamp — no cookie needed for CSRF protection.
+    const state = generateSignedState(user.id)
     const oauthUrl = buildMetaOAuthUrl(state)
+    const mode = getOAuthMode()
 
-    // Safe debug log — no secrets, no state value
     console.log('[Meta OAuth] connect initiated', {
+      mode,
       redirect_uri: process.env.META_REDIRECT_URI,
-      requested_scopes: META_OAUTH_SCOPES,
       app_id_set: !!process.env.META_APP_ID,
-    })
-
-    const cookieStore = await cookies()
-    cookieStore.set(META_OAUTH_STATE_COOKIE, state, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: META_OAUTH_STATE_TTL_SECONDS,
-      path: '/',
+      ...(mode === 'config_id'
+        ? { config_id: META_CONFIG_ID }
+        : { requested_scopes: META_OAUTH_SCOPES }),
     })
 
     return NextResponse.redirect(oauthUrl)

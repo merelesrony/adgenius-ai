@@ -196,6 +196,16 @@ export function Sidebar({ profile, open, onClose }: SidebarProps) {
           </form>
         </div>
 
+        {/* Privacy link */}
+        <div className="flex-shrink-0 px-6 pb-2">
+          <Link
+            href="/privacy"
+            className="text-[11px] text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Política de Privacidad
+          </Link>
+        </div>
+
         {/* Profile card */}
         <div className="flex-shrink-0 border-t border-sidebar-border p-3">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-muted/60">

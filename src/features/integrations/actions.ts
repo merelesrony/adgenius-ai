@@ -2,7 +2,9 @@
 
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
-import type { MetaConnectionRow, UpdateMetaSelectionInput } from './types'
+import { decryptMetaToken } from '@/lib/meta/meta-auth'
+import { getMetaTokenStatus } from '@/lib/meta/meta-publisher-utils'
+import type { MetaConnectionRow, UpdateMetaSelectionInput, MetaConnectionStatus } from './types'
 import type { MetaAdAccount, MetaPage, MetaInstagramAccount, MetaBusinessPortfolio } from '@/lib/meta/meta-types'
 
 type Json = unknown
@@ -60,6 +62,66 @@ export async function getMetaConnectionAction(): Promise<MetaConnectionRow | nul
     instagram_accounts: toInstagram(data.instagram_accounts),
     created_at: data.created_at as string,
     updated_at: data.updated_at as string,
+  }
+}
+
+/**
+ * Returns the Meta connection status safe for the UI.
+ * Never exposes the access token, app secret, or token secret.
+ * Uses expires_at (from DB) + local decrypt check — no Meta API call.
+ */
+export async function getMetaConnectionStatusAction(): Promise<MetaConnectionStatus> {
+  const missing: MetaConnectionStatus = {
+    connected: false,
+    status: 'missing',
+    expiresAt: null,
+    selectedAdAccount: null,
+    selectedPage: null,
+    selectedInstagram: null,
+  }
+
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return missing
+
+  const { data } = await supabase
+    .from('meta_connections')
+    .select(
+      'access_token_enc, expires_at, selected_ad_account_id, selected_ad_account_name, selected_page_id, selected_page_name, selected_instagram_id',
+    )
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!data) return missing
+
+  // Verify the stored token can be decrypted (detects corrupted encryption without a Meta API call)
+  try {
+    decryptMetaToken(data.access_token_enc as string)
+  } catch {
+    return {
+      connected: true,
+      status: 'invalid',
+      expiresAt: null,
+      selectedAdAccount: null,
+      selectedPage: null,
+      selectedInstagram: null,
+    }
+  }
+
+  const expiresAt = (data.expires_at as string | null) ?? null
+  const adAccountId = (data.selected_ad_account_id as string | null) ?? null
+  const adAccountName = (data.selected_ad_account_name as string | null) ?? null
+  const pageId = (data.selected_page_id as string | null) ?? null
+  const pageName = (data.selected_page_name as string | null) ?? null
+  const instagramId = (data.selected_instagram_id as string | null) ?? null
+
+  return {
+    connected: true,
+    status: getMetaTokenStatus(expiresAt),
+    expiresAt,
+    selectedAdAccount: adAccountId ? { id: adAccountId, name: adAccountName ?? adAccountId } : null,
+    selectedPage: pageId ? { id: pageId, name: pageName ?? pageId } : null,
+    selectedInstagram: instagramId ? { id: instagramId } : null,
   }
 }
 

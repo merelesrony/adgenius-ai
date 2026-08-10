@@ -56,166 +56,6 @@ export type Database = {
           },
         ]
       }
-      campaign_creatives: {
-        Row: {
-          id: string
-          user_id: string
-          campaign_id: string | null
-          image_url: string
-          prompt: string
-          model: string
-          format: string
-          preset_id: string | null
-          created_at: string
-          product_id: string | null
-          is_favorite: boolean
-          category: string | null
-          is_primary: boolean
-          headline: string | null
-          primary_text: string | null
-          description: string | null
-          cta: string | null
-          variant: string | null
-          variant_label: string | null
-          creative_brief: Json | null
-          creative_score: Json | null
-          platform_format: string | null
-          variant_type: string | null
-          generation_model: string | null
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          campaign_id?: string | null
-          image_url: string
-          prompt: string
-          model?: string
-          format?: string
-          preset_id?: string | null
-          created_at?: string
-          product_id?: string | null
-          is_favorite?: boolean
-          category?: string | null
-          is_primary?: boolean
-          headline?: string | null
-          primary_text?: string | null
-          description?: string | null
-          cta?: string | null
-          variant?: string | null
-          variant_label?: string | null
-          creative_brief?: Json | null
-          creative_score?: Json | null
-          platform_format?: string | null
-          variant_type?: string | null
-          generation_model?: string | null
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          campaign_id?: string | null
-          image_url?: string
-          prompt?: string
-          model?: string
-          format?: string
-          preset_id?: string | null
-          created_at?: string
-          product_id?: string | null
-          is_favorite?: boolean
-          category?: string | null
-          is_primary?: boolean
-          headline?: string | null
-          primary_text?: string | null
-          description?: string | null
-          cta?: string | null
-          variant?: string | null
-          variant_label?: string | null
-          creative_brief?: Json | null
-          creative_score?: Json | null
-          platform_format?: string | null
-          variant_type?: string | null
-          generation_model?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "campaign_creatives_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_creatives_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_creatives_product_id_fkey"
-            columns: ["product_id"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      campaign_optimizations: {
-        Row: {
-          id: string
-          campaign_id: string
-          user_id: string
-          type: string
-          priority: string
-          problem: string
-          recommendation: string
-          before_value: string | null
-          after_value: string | null
-          status: string
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          campaign_id: string
-          user_id: string
-          type: string
-          priority: string
-          problem: string
-          recommendation: string
-          before_value?: string | null
-          after_value?: string | null
-          status?: string
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          campaign_id?: string
-          user_id?: string
-          type?: string
-          priority?: string
-          problem?: string
-          recommendation?: string
-          before_value?: string | null
-          after_value?: string | null
-          status?: string
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "campaign_optimizations_campaign_id_fkey"
-            columns: ["campaign_id"]
-            isOneToOne: false
-            referencedRelation: "campaigns"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "campaign_optimizations_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       audit_logs: {
         Row: {
           action: string
@@ -316,6 +156,302 @@ export type Database = {
           },
         ]
       }
+      campaign_ai_reviews: {
+        Row: {
+          campaign_id: string
+          coach_advice: string | null
+          created_at: string
+          findings: Json
+          id: string
+          prediction: Json | null
+          quick_wins: Json
+          recommendations: Json
+          risks: Json
+          score: number
+          sub_scores: Json
+          summary: string | null
+          user_id: string
+        }
+        Insert: {
+          campaign_id: string
+          coach_advice?: string | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          prediction?: Json | null
+          quick_wins?: Json
+          recommendations?: Json
+          risks?: Json
+          score?: number
+          sub_scores?: Json
+          summary?: string | null
+          user_id: string
+        }
+        Update: {
+          campaign_id?: string
+          coach_advice?: string | null
+          created_at?: string
+          findings?: Json
+          id?: string
+          prediction?: Json | null
+          quick_wins?: Json
+          recommendations?: Json
+          risks?: Json
+          score?: number
+          sub_scores?: Json
+          summary?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_ai_reviews_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_builder_sessions: {
+        Row: {
+          ai_strategy: Json | null
+          brand_kit: Json | null
+          budget: Json | null
+          builder_mode: string | null
+          campaign_id: string | null
+          created_at: string
+          creatives: Json | null
+          current_step: number
+          destination: Json | null
+          has_pending_regeneration: boolean
+          id: string
+          last_completed_step: number
+          max_unlocked_step: number
+          platforms: Json | null
+          product_image_mode: string | null
+          product_mode: string | null
+          selected_creative_id: string | null
+          selected_product: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_strategy?: Json | null
+          brand_kit?: Json | null
+          budget?: Json | null
+          builder_mode?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          creatives?: Json | null
+          current_step?: number
+          destination?: Json | null
+          has_pending_regeneration?: boolean
+          id?: string
+          last_completed_step?: number
+          max_unlocked_step?: number
+          platforms?: Json | null
+          product_image_mode?: string | null
+          product_mode?: string | null
+          selected_creative_id?: string | null
+          selected_product?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_strategy?: Json | null
+          brand_kit?: Json | null
+          budget?: Json | null
+          builder_mode?: string | null
+          campaign_id?: string | null
+          created_at?: string
+          creatives?: Json | null
+          current_step?: number
+          destination?: Json | null
+          has_pending_regeneration?: boolean
+          id?: string
+          last_completed_step?: number
+          max_unlocked_step?: number
+          platforms?: Json | null
+          product_image_mode?: string | null
+          product_mode?: string | null
+          selected_creative_id?: string | null
+          selected_product?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_builder_sessions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_creatives: {
+        Row: {
+          campaign_id: string | null
+          category: string | null
+          created_at: string
+          creative_brief: Json | null
+          creative_score: Json | null
+          cta: string | null
+          description: string | null
+          format: string
+          generation_model: string | null
+          headline: string | null
+          id: string
+          image_url: string
+          is_favorite: boolean
+          is_primary: boolean
+          model: string
+          platform_format: string | null
+          preset_id: string | null
+          primary_text: string | null
+          product_id: string | null
+          prompt: string
+          user_id: string
+          variant: string | null
+          variant_label: string | null
+          variant_type: string | null
+        }
+        Insert: {
+          campaign_id?: string | null
+          category?: string | null
+          created_at?: string
+          creative_brief?: Json | null
+          creative_score?: Json | null
+          cta?: string | null
+          description?: string | null
+          format?: string
+          generation_model?: string | null
+          headline?: string | null
+          id?: string
+          image_url: string
+          is_favorite?: boolean
+          is_primary?: boolean
+          model?: string
+          platform_format?: string | null
+          preset_id?: string | null
+          primary_text?: string | null
+          product_id?: string | null
+          prompt: string
+          user_id: string
+          variant?: string | null
+          variant_label?: string | null
+          variant_type?: string | null
+        }
+        Update: {
+          campaign_id?: string | null
+          category?: string | null
+          created_at?: string
+          creative_brief?: Json | null
+          creative_score?: Json | null
+          cta?: string | null
+          description?: string | null
+          format?: string
+          generation_model?: string | null
+          headline?: string | null
+          id?: string
+          image_url?: string
+          is_favorite?: boolean
+          is_primary?: boolean
+          model?: string
+          platform_format?: string | null
+          preset_id?: string | null
+          primary_text?: string | null
+          product_id?: string | null
+          prompt?: string
+          user_id?: string
+          variant?: string | null
+          variant_label?: string | null
+          variant_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_creatives_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_creatives_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_creatives_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      campaign_optimizations: {
+        Row: {
+          after_value: string | null
+          before_value: string | null
+          campaign_id: string
+          created_at: string
+          id: string
+          priority: string
+          problem: string
+          recommendation: string
+          status: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          after_value?: string | null
+          before_value?: string | null
+          campaign_id: string
+          created_at?: string
+          id?: string
+          priority: string
+          problem: string
+          recommendation: string
+          status?: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          after_value?: string | null
+          before_value?: string | null
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          priority?: string
+          problem?: string
+          recommendation?: string
+          status?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "campaign_optimizations_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "campaign_optimizations_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       campaign_stats: {
         Row: {
           campaign_id: string
@@ -391,9 +527,14 @@ export type Database = {
           flyer_url: string | null
           id: string
           last_sync: string | null
+          meta_account_id: string | null
           meta_ad_id: string | null
           meta_adset_id: string | null
           meta_campaign_id: string | null
+          meta_creative_id: string | null
+          meta_instagram_actor_id: string | null
+          meta_page_id: string | null
+          meta_published_at: string | null
           name: string
           objective: string | null
           optimizer_run_at: string | null
@@ -443,9 +584,14 @@ export type Database = {
           flyer_url?: string | null
           id?: string
           last_sync?: string | null
+          meta_account_id?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_creative_id?: string | null
+          meta_instagram_actor_id?: string | null
+          meta_page_id?: string | null
+          meta_published_at?: string | null
           name: string
           objective?: string | null
           optimizer_run_at?: string | null
@@ -495,9 +641,14 @@ export type Database = {
           flyer_url?: string | null
           id?: string
           last_sync?: string | null
+          meta_account_id?: string | null
           meta_ad_id?: string | null
           meta_adset_id?: string | null
           meta_campaign_id?: string | null
+          meta_creative_id?: string | null
+          meta_instagram_actor_id?: string | null
+          meta_page_id?: string | null
+          meta_published_at?: string | null
           name?: string
           objective?: string | null
           optimizer_run_at?: string | null
@@ -536,6 +687,50 @@ export type Database = {
           },
           {
             foreignKeyName: "campaigns_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      marketing_strategies: {
+        Row: {
+          created_at: string
+          id: string
+          product_category: string | null
+          product_currency: string
+          product_description: string | null
+          product_name: string
+          product_price: number | null
+          strategy_json: Json
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          product_category?: string | null
+          product_currency?: string
+          product_description?: string | null
+          product_name: string
+          product_price?: number | null
+          strategy_json: Json
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          product_category?: string | null
+          product_currency?: string
+          product_description?: string | null
+          product_name?: string
+          product_price?: number | null
+          strategy_json?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "marketing_strategies_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
@@ -596,49 +791,71 @@ export type Database = {
           },
         ]
       }
-      marketing_strategies: {
+      meta_connections: {
         Row: {
-          id: string
-          user_id: string
-          product_name: string
-          product_description: string | null
-          product_price: number | null
-          product_currency: string
-          product_category: string | null
-          strategy_json: Json
+          access_token_enc: string
+          ad_accounts: Json
+          business_portfolio: Json | null
           created_at: string
+          expires_at: string | null
+          id: string
+          instagram_accounts: Json
+          meta_user_id: string
+          meta_user_name: string | null
+          pages: Json
+          scopes: string[]
+          selected_ad_account_id: string | null
+          selected_ad_account_name: string | null
+          selected_instagram_id: string | null
+          selected_page_id: string | null
+          selected_page_name: string | null
+          token_type: string
+          updated_at: string
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          product_name: string
-          product_description?: string | null
-          product_price?: number | null
-          product_currency?: string
-          product_category?: string | null
-          strategy_json: Json
+          access_token_enc: string
+          ad_accounts?: Json
+          business_portfolio?: Json | null
           created_at?: string
+          expires_at?: string | null
+          id?: string
+          instagram_accounts?: Json
+          meta_user_id: string
+          meta_user_name?: string | null
+          pages?: Json
+          scopes?: string[]
+          selected_ad_account_id?: string | null
+          selected_ad_account_name?: string | null
+          selected_instagram_id?: string | null
+          selected_page_id?: string | null
+          selected_page_name?: string | null
+          token_type?: string
+          updated_at?: string
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          product_name?: string
-          product_description?: string | null
-          product_price?: number | null
-          product_currency?: string
-          product_category?: string | null
-          strategy_json?: Json
+          access_token_enc?: string
+          ad_accounts?: Json
+          business_portfolio?: Json | null
           created_at?: string
+          expires_at?: string | null
+          id?: string
+          instagram_accounts?: Json
+          meta_user_id?: string
+          meta_user_name?: string | null
+          pages?: Json
+          scopes?: string[]
+          selected_ad_account_id?: string | null
+          selected_ad_account_name?: string | null
+          selected_instagram_id?: string | null
+          selected_page_id?: string | null
+          selected_page_name?: string | null
+          token_type?: string
+          updated_at?: string
+          user_id?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "marketing_strategies_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       plans: {
         Row: {
@@ -831,82 +1048,10 @@ export type Database = {
           },
         ]
       }
-      meta_connections: {
-        Row: {
-          id: string
-          user_id: string
-          meta_user_id: string
-          meta_user_name: string | null
-          access_token_enc: string
-          token_type: string
-          expires_at: string | null
-          scopes: string[]
-          selected_ad_account_id: string | null
-          selected_ad_account_name: string | null
-          selected_page_id: string | null
-          selected_page_name: string | null
-          selected_instagram_id: string | null
-          business_portfolio: Json | null
-          ad_accounts: Json
-          pages: Json
-          instagram_accounts: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          user_id: string
-          meta_user_id: string
-          meta_user_name?: string | null
-          access_token_enc: string
-          token_type?: string
-          expires_at?: string | null
-          scopes?: string[]
-          selected_ad_account_id?: string | null
-          selected_ad_account_name?: string | null
-          selected_page_id?: string | null
-          selected_page_name?: string | null
-          selected_instagram_id?: string | null
-          business_portfolio?: Json | null
-          ad_accounts?: Json
-          pages?: Json
-          instagram_accounts?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          user_id?: string
-          meta_user_id?: string
-          meta_user_name?: string | null
-          access_token_enc?: string
-          token_type?: string
-          expires_at?: string | null
-          scopes?: string[]
-          selected_ad_account_id?: string | null
-          selected_ad_account_name?: string | null
-          selected_page_id?: string | null
-          selected_page_name?: string | null
-          selected_instagram_id?: string | null
-          business_portfolio?: Json | null
-          ad_accounts?: Json
-          pages?: Json
-          instagram_accounts?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "meta_connections_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: true
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
-    Views: Record<string, never>
+    Views: {
+      [_ in never]: never
+    }
     Functions: {
       check_campaign_limit: { Args: { p_user_id: string }; Returns: boolean }
       get_campaign_stats: {
@@ -918,7 +1063,7 @@ export type Database = {
           ready_count: number
         }[]
       }
-      is_admin: { Args: Record<string, never>; Returns: boolean }
+      is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
       audience_mode: "manual" | "ai"

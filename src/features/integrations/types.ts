@@ -1,4 +1,17 @@
-import type { MetaAdAccount, MetaPage, MetaInstagramAccount, MetaBusinessPortfolio } from '@/lib/meta/meta-types'
+import type { MetaAdAccount, MetaPage, MetaInstagramAccount, MetaBusinessPortfolio, MetaTokenStatus } from '@/lib/meta/meta-types'
+
+/** Status of the Meta connection, safe to expose to UI (no tokens or secrets) */
+export type MetaConnectionStatusValue = MetaTokenStatus | 'invalid' | 'missing'
+
+export interface MetaConnectionStatus {
+  connected: boolean
+  /** 'missing' = no connection row; 'invalid' = token decrypt failed; others from MetaTokenStatus */
+  status: MetaConnectionStatusValue
+  expiresAt: string | null
+  selectedAdAccount: { id: string; name: string } | null
+  selectedPage: { id: string; name: string } | null
+  selectedInstagram: { id: string } | null
+}
 
 export interface MetaConnectionRow {
   id: string
